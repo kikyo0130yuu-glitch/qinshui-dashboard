@@ -3,29 +3,40 @@
 
   // Only decorate the consumer panel; data values and metric calculations stay
   // with dashboard.js and ConsumerMetrics. Motion never changes data values.
+  function cloneOption(value) {
+    if (Array.isArray(value)) return value.map(cloneOption);
+    if (value && Object.prototype.toString.call(value) === '[object Object]') {
+      return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, cloneOption(entry)]));
+    }
+    return value;
+  }
+
   function decorateRadarOption(option) {
-    const radar = option.radar;
+    const decorated = cloneOption(option);
+    const radar = decorated.radar;
     radar.splitLine = { lineStyle: {
-      color: ['#2d5268', '#38677f', '#437d94', '#5399ac', '#6eb8c9'],
-      width: 1.2, opacity: .95
+      color: ['#4f89a3', '#629cb2', '#74aec0', '#8dc4d1', '#b1e3ea'],
+      width: 1.6, opacity: 1
     } };
-    radar.axisLine = { lineStyle: { color: '#4b8ba3', width: 1.2 } };
+    radar.axisLine = { lineStyle: { color: '#8bc8dc', width: 1.7, opacity: 1 } };
     radar.splitArea = { show: true, areaStyle: {
       color: ['rgba(31,107,135,.055)', 'rgba(31,107,135,.10)']
     } };
-    for (const series of option.series || []) {
+    for (const series of decorated.series || []) {
       if (series.type !== 'radar') continue;
       series.symbol = 'circle';
-      series.symbolSize = 8;
+      // Radar node styling applies to every vertex; keep numeric value arrays
+      // intact rather than replacing dimensions with unsupported style objects.
+      series.symbolSize = 10;
       for (const group of series.data || []) {
         const color = group.itemStyle && group.itemStyle.color;
         group.itemStyle = { ...group.itemStyle,
-          borderColor: '#e7fcff', borderWidth: 1.2,
-          shadowBlur: 7, shadowColor: color
+          borderColor: '#ffffff', borderWidth: 2, opacity: 1,
+          shadowBlur: 9, shadowColor: color
         };
       }
     }
-    return option;
+    return decorated;
   }
 
   function installMetricGlow() {

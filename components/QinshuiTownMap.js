@@ -2,8 +2,8 @@
   'use strict';
   const NS = 'http://www.w3.org/2000/svg';
   const types = {
-    store: { label: '门店', color: '#49d5e8', icon: 'M-11-3H11L8-10H-8ZM-9-3V10H9V-3M-3 10V2H3V10' },
-    canteen: { label: '后勤事业部 / 食堂', color: '#f1cb74', icon: 'M-10 11V-10H10V11ZM-5-5H-3M3-5H5M-5 0H-3M3 0H5M-3 11V5H3V11' },
+    store: { label: '门店', color: '#ffe551', marker: 'light' },
+    canteen: { label: '后勤事业部 / 食堂', color: '#64d6ad', marker: 'light' },
     base: { label: '农产品基地', color: '#72ddb1', icon: 'M0 12V-4M0 0Q-13 1-10-10Q1-10 0 0M0 5Q13 5 11-6Q0-6 0 5' },
     warehouse: { label: '仓库 / 配送中心', color: '#82b9ff', icon: 'M-12-3L0-12L12-3M-10-4V11H10V-4M-6 11V1H6V11M-6 5H6' },
     logistics: { label: '物流节点', color: '#cbacff', icon: 'M-12-7H3V6H-12ZM3-2H9L12 3V6H3M-5 9A3 3 0 1 0-5 3A3 3 0 1 0-5 9M8 9A3 3 0 1 0 8 3A3 3 0 1 0 8 9' },
@@ -134,6 +134,20 @@
       // Great-circle radius using the IUGG mean Earth radius, not a pixel radius.
       return d3.geoCircle().center(coordinate).radius(radiusKm / 6371.0088 * 180 / Math.PI).precision(2)();
     }
+    reducedMotion() {
+      try { return typeof root.matchMedia === 'function' && root.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+      catch (_) { return false; }
+    }
+    parkMarkerScale() {
+      const scale = this.data.settings.parkMarkerScale;
+      return typeof scale === 'number' && Number.isFinite(scale) && scale > 0 && scale <= 1 ? scale : .5;
+    }
+    markerPulse(radius, min, max, className) {
+      const pulse = node('circle', { r: radius, fill: 'none', stroke: 'currentColor', 'stroke-width': 1, class: className });
+      if (!this.reducedMotion()) pulse.append(node('animate', { attributeName: 'r', values: `${min};${max};${min}`, dur: '3s', repeatCount: 'indefinite' }),
+        node('animate', { attributeName: 'opacity', values: '.55;.1;.55', dur: '3s', repeatCount: 'indefinite' }));
+      return pulse;
+    }
     drawTerrain(svg,width,height) {
       const terrain=this.data.terrain;
       if(!terrain?.active||terrain.mode!=='decorative'||!terrain.decorativeUseConfirmedByUser)return false;
@@ -225,10 +239,11 @@
           // does not activate or rewrite the UNKNOWN park spreadsheet position.
           this.radarCenterMarker.setAttribute('data-schematic','true');
           this.radarCenterMarker.setAttribute('aria-label',`${appearance.displayName}示意标识；辐射圆心为${anchor.name}`);
-          const glyph=node('g',{class:'radar-town-center',transform:`translate(${x},${y})`,style:`color:${appearance.color||'#FE0100'}`});
-          const pulse=node('circle',{r:23,fill:'none',stroke:'currentColor','stroke-width':1,class:'center-marker-pulse'});
-          pulse.append(node('animate',{attributeName:'r',values:'22;35;22',dur:'3s',repeatCount:'indefinite'}),node('animate',{attributeName:'opacity',values:'.55;.1;.55',dur:'3s',repeatCount:'indefinite'}));
-          glyph.append(pulse,node('path',{d:d3.symbol().type(d3.symbolStar).size(600)(),fill:'currentColor',class:'center-park-star'}),node('text',{x:0,y:42,'text-anchor':'middle',class:'park-name'},appearance.displayName));
+          const scale=this.parkMarkerScale();
+          const glyph=node('g',{class:'radar-town-center',transform:`translate(${x},${y})`,style:`color:${appearance.color||'#FE0100'}`,'data-marker-scale':scale});
+          // D3 symbol size is area. A quarter of the area halves every linear dimension.
+          const pulse=this.markerPulse(23*scale,22*scale,35*scale,'center-marker-pulse');
+          glyph.append(pulse,node('path',{d:d3.symbol().type(d3.symbolStar).size(600*scale*scale)(),fill:'currentColor',class:'center-park-star'}),node('text',{x:0,y:32,'text-anchor':'middle',class:'park-name'},appearance.displayName));
           this.radarCenterMarker.append(glyph);
         }else{
           this.radarCenterMarker.append(node('circle',{cx:x,cy:y,r:5,fill:'#a2f5ff',stroke:'#2eace2','stroke-width':2,class:'radar-town-center'}));
@@ -249,7 +264,7 @@
         const [tx,ty]=projection([info.point.longitude,info.point.latitude]),distance=Math.hypot(tx-ox,ty-oy);
         if(distance<1)return;
         const bend=Math.min(distance*.16,45),cx=(ox+tx)/2-(ty-oy)/distance*bend,cy=(oy+ty)/2+(tx-ox)/distance*bend;
-        const route=`M${ox},${oy}Q${cx},${cy} ${tx},${ty}`,color=this.data.settings.routeColors?.[info.point.type]||(info.point.type==='store'?'#19cbe5':'#ffe551');
+        const route=`M${ox},${oy}Q${cx},${cy} ${tx},${ty}`,color=this.data.settings.routeColors?.[info.point.type]||(info.point.type==='store'?'#ffe551':'#64d6ad');
         staticLines.append(node('path',{d:route,class:'dispatch-line','data-target-type':info.point.type,style:`stroke:${color}`}));
         for(const inbound of [false,true]){
           const begin=Math.floor(index/4)*interval+(inbound?2:0),dot=node('circle',{r:inbound?2.6:3.5,fill:color,opacity:0,class:`dispatch-dot ${inbound?'dispatch-inbound':'dispatch-outbound'}`});
@@ -345,13 +360,24 @@
         // Legitimate county-exterior business sites stay at their true coordinates.
         const sourcePoint=info.point,isOrigin=sourcePoint.id===origin?.point.id;
         const p=isOrigin?{...sourcePoint,name:this.data.settings.dispatchOriginName||sourcePoint.name}:sourcePoint;
-        const [x, y] = projection([p.longitude, p.latitude]), style = isOrigin?{label:'供应链园区',color:this.data.settings.dispatchOriginColor||'#FE0100',icon:d3.symbol().type(d3.symbolStar).size(500)()}:types[p.type] || fallback;
-        const marker = node('g', { transform: `translate(${x},${y})`, class: 'map-marker', 'data-point-id':p.id, tabindex: 0, role: 'button', 'aria-label': `${p.name}，${style.label}`, style: `color:${style.color}` });
-        const pulse = node('circle', { r: isOrigin?25:17, fill: 'none', stroke: 'currentColor', 'stroke-width': 1, class: 'map-marker-pulse' });
-        pulse.append(node('animate', { attributeName: 'r', values: isOrigin?'22;34;22':'15;22;15', dur: '3s', repeatCount: 'indefinite' }), node('animate', { attributeName: 'opacity', values: '.5;.1;.5', dur: '3s', repeatCount: 'indefinite' }));
+        const scale=isOrigin?this.parkMarkerScale():1;
+        const [x, y] = projection([p.longitude, p.latitude]), style = isOrigin?{label:'供应链园区',color:this.data.settings.dispatchOriginColor||'#FE0100',icon:d3.symbol().type(d3.symbolStar).size(500*scale*scale)()}:types[p.type] || fallback;
+        const marker = node('g', { transform: `translate(${x},${y})`, class: 'map-marker', 'data-point-id':p.id, 'data-point-type':p.type, 'data-marker-scale':scale, tabindex: 0, role: 'button', 'aria-label': `${p.name}，${style.label}`, style: `color:${style.color}` });
+        const light=style.marker==='light';
+        const pulse = this.markerPulse(isOrigin?25*scale:light?8:17,isOrigin?22*scale:light?8:15,isOrigin?34*scale:light?14:22,'map-marker-pulse');
         marker.append(pulse);
-        marker.append(node('circle', { r: isOrigin?23:16, fill: '#091726', stroke: 'currentColor', 'stroke-width': 1.5 }), node('path', { d: style.icon, fill: isOrigin?'currentColor':'none', stroke: 'currentColor', 'stroke-width': 2, class:isOrigin?'park-star':'point-icon' }), node('title', {}, `${p.name} · ${style.label}`));
-        if(isOrigin)marker.append(node('text',{x:0,y:43,'text-anchor':'middle',class:'park-name'},p.name));
+        if(light){
+          const halo=node('circle',{r:9,fill:'currentColor','fill-opacity':.16,class:'business-light-halo'});
+          const dot=node('circle',{r:4.5,fill:'currentColor',class:'business-light-point',style:'filter:drop-shadow(0 0 5px currentColor)'});
+          if(!this.reducedMotion()){
+            halo.append(node('animate',{attributeName:'fill-opacity',values:'.12;.3;.12',dur:'3s',repeatCount:'indefinite'}));
+            dot.append(node('animate',{attributeName:'opacity',values:'.75;1;.75',dur:'3s',repeatCount:'indefinite'}));
+          }
+          marker.append(halo,dot,node('circle',{r:1.4,fill:'#ffffff','fill-opacity':.85,class:'business-light-core'}));
+        }else marker.append(node('circle', { r: isOrigin?23*scale:16, fill: '#091726', stroke: 'currentColor', 'stroke-width': isOrigin?1.5*scale:1.5 }),
+          node('path', { d: style.icon, fill: isOrigin?'currentColor':'none', stroke: 'currentColor', 'stroke-width': isOrigin?2*scale:2, class:isOrigin?'park-star':'point-icon' }));
+        marker.append(node('title', {}, `${p.name} · ${style.label}`));
+        if(isOrigin)marker.append(node('text',{x:0,y:32,'text-anchor':'middle',class:'park-name'},p.name));
         const select = () => { this.showPoint(p, style); this.container.dispatchEvent(new CustomEvent('pointselect', { detail: { ...p } })); };
         marker.onclick = select;
         marker.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(); } };

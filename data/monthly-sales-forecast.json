@@ -1,0 +1,130 @@
+{
+  "status": "ok",
+  "sourceKind": "trend-model-forecast",
+  "modelVersion": "calendar-rate-ols-anchored-damped-v1",
+  "currency": "CNY",
+  "scope": "门店与后勤合计销售额",
+  "asOfDate": "2026-10-06",
+  "observedThrough": "2026-10-05",
+  "forecastStartMonth": "2026-11",
+  "horizonMonths": 3,
+  "months": [
+    {
+      "month": "2026-11",
+      "pointSalesCny": 1323144.56,
+      "scenarioLowerSalesCny": 1098529.68,
+      "scenarioUpperSalesCny": 1379298.28,
+      "scenarios": {
+        "flatDailySalesCny": 1098529.68,
+        "undampedTrendSalesCny": 1379298.28
+      },
+      "businessTargetSalesCny": null,
+      "calendarDays": 30,
+      "horizonFromAnchorMonths": 1,
+      "type": "trend-model-forecast"
+    },
+    {
+      "month": "2026-12",
+      "pointSalesCny": 1552931.01,
+      "scenarioLowerSalesCny": 1135147.34,
+      "scenarioUpperSalesCny": 1715402.44,
+      "scenarios": {
+        "flatDailySalesCny": 1135147.34,
+        "undampedTrendSalesCny": 1715402.44
+      },
+      "businessTargetSalesCny": null,
+      "calendarDays": 31,
+      "horizonFromAnchorMonths": 2,
+      "type": "trend-model-forecast"
+    },
+    {
+      "month": "2027-01",
+      "pointSalesCny": 1701476.31,
+      "scenarioLowerSalesCny": 1135147.34,
+      "scenarioUpperSalesCny": 2005529.99,
+      "scenarios": {
+        "flatDailySalesCny": 1135147.34,
+        "undampedTrendSalesCny": 2005529.99
+      },
+      "businessTargetSalesCny": null,
+      "calendarDays": 31,
+      "horizonFromAnchorMonths": 3,
+      "type": "trend-model-forecast"
+    }
+  ],
+  "model": {
+    "name": "趋势模型预测",
+    "candidateType": "anchored-damped",
+    "trainingMonths": [
+      "2026-06",
+      "2026-07",
+      "2026-08",
+      "2026-09"
+    ],
+    "completeMonthCount": 4,
+    "damping": {
+      "value": 0.8,
+      "kind": "fixed-assumption",
+      "applied": true
+    },
+    "uncertainty": {
+      "kind": "scenario-envelope",
+      "confidenceLevel": null,
+      "isPredictionInterval": false
+    },
+    "llmUsed": false,
+    "seasonalityEstimated": false,
+    "weatherUsed": false,
+    "inventoryUsed": false,
+    "validation": "not-out-of-sample-validated",
+    "references": [
+      {
+        "title": "Calendar adjustments",
+        "url": "https://otexts.com/fpp3/transformations.html"
+      },
+      {
+        "title": "Linear time trend",
+        "url": "https://otexts.com/fpp3/useful-predictors.html"
+      },
+      {
+        "title": "Damped trend methods",
+        "url": "https://otexts.com/fpp3/holt.html"
+      },
+      {
+        "title": "Very short time series",
+        "url": "https://otexts.com/fpp3/long-short-ts.html"
+      },
+      {
+        "title": "Scenario forecasting",
+        "url": "https://otexts.com/fpp3/scenarios.html"
+      }
+    ],
+    "olsDailyTrendCnyPerMonth": 9358.953216129034,
+    "olsDailyInterceptCny": 6569.484458064515,
+    "olsOriginMonth": "2026-06",
+    "trainingResidualRmseCnyPerDay": 2176.475520661138,
+    "anchor": {
+      "month": "2026-10",
+      "actualSalesCny": 183088.28,
+      "actualPeriodStart": "2026-10-01",
+      "actualPeriodEnd": "2026-10-05",
+      "coveredCalendarDays": 5,
+      "monthCalendarDays": 31,
+      "coverageFraction": 0.16129032258064516,
+      "dailyRateCny": 36617.656,
+      "monthEquivalentSalesCny": 1135147.34,
+      "isActualFullMonth": false,
+      "basis": "uniform-calendar-day-rate-assumption"
+    },
+    "formula": "calendarDays(month) * max(0, anchorDailyRate + olsDailyTrend * sum(phi^j, j=1..h))",
+    "targetPolicy": "historical-estimatedSalesCny-and-business-targets-excluded-from-training",
+    "limitations": [
+      "仅少量完整月，模型优劣及未来误差分布尚未验证。",
+      "日历日均仅调整月长，未校正营业日、星期结构、节假日或渠道变化。",
+      "部分月日均校准假定已覆盖日期代表整月；整月外推不是实际销售额。",
+      "阻尼系数为预设假设，未用数据估计；这不是已拟合的ETS/Holt模型。",
+      "情景范围不保证覆盖未来实际，不是置信区间或预测区间。"
+    ],
+    "scenarioDefinition": "envelope-of-flat-anchor-undamped-anchor-and-selected-candidate"
+  }
+}

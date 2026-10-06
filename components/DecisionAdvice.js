@@ -9,6 +9,17 @@
   const count = (value) => finite(value) ? Math.max(0, Math.round(value)).toLocaleString('zh-CN') : '—';
   const clean = (value, limit = 80) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
   const DISPLAY_LABELS = { stock: '门店', data: '运营', plan: '拓展', forecast: '配送' };
+  const RULE_VERSION = 'county-supply-chain-rules-v1';
+  const RESEARCH_SOURCES = {
+    network: 'https://www.chinacoop.gov.cn/subStation/fzgg/news.html?aid=1849785&subId=1831',
+    coldChain: 'https://www.ndrc.gov.cn/fggz/fzzlgh/gjjzxgh/202203/t20220325_1320204.html',
+    foodLoss: 'https://www.fao.org/energy/news-and-events/news/news-details/cooling-the-chain--cutting-the-waste/en',
+    scenario: 'https://nyncj.wuhan.gov.cn/ztzl_25/zxzt/zhny/202609/t20260918_2849494.html'
+  };
+  const date = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    && Number.isFinite(Date.parse(value + 'T00:00:00Z')) && new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value ? value : null;
+  const nonnegative = value => finite(value) && value >= 0 ? value : null;
+  const integer = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
 
   // Presentation only: source mode, composition, amounts and proxy request provenance stay intact.
   function displayText(value) {
@@ -37,7 +48,7 @@
     const url = new URL(text);
     if (url.username || url.password || url.hash) throw new Error('代理地址不能包含账号、密码或片段');
     for (const key of url.searchParams.keys()) {
-      if (/api[-_]?key|token|secret|authorization|access[-_]?key/i.test(key)) throw new Error('请勿将 API 密钥放入前端代理地址');
+      if (/^(?:auth|sig|password|passwd|pwd|bearer|session|key)$|api[-_]?key|token|secret|authorization|credential|signature|access[-_]?key/i.test(key)) throw new Error('请勿将 API 密钥放入前端代理地址');
     }
     const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
     if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) {
@@ -58,6 +69,37 @@
   }
 
   // Only the summary schema below may be sent to an AI proxy. Raw orders and customer data are excluded.
+  function contextSummary(source) {
+    const number = value => finite(value) ? value : null;
+    const trend = source.salesTrend || {}, consumer = source.consumerMetrics || {}, weather = source.weather || {}, reserves = source.reserves || {};
+    const window = consumer.window || {}, counts = consumer.counts || {}, replay = consumer.replay || {};
+    const monthly = (rows, actual) => Array.isArray(rows) ? rows.slice(-24).map(row => ({
+      month: /^\d{4}-(?:0[1-9]|1[0-2])$/.test(row && row.month || '') ? row.month : null,
+      amount: number(row && row.amount),
+      ...(actual ? { periodStart: date(row && row.periodStart), periodEnd: date(row && row.periodEnd), complete: typeof (row && row.complete) === 'boolean' ? row.complete : null }
+        : { source: clean(row && row.source, 60) })
+    })).filter(row => row.month) : [];
+    return {
+      salesTrend: {
+        source: clean(trend.source, 60), currency: clean(trend.currency, 12), actual: monthly(trend.actual, true), forecast: monthly(trend.forecast, false),
+        baseline: { coefficient: nonnegative(trend.baseline && trend.baseline.coefficient), source: clean(trend.baseline && trend.baseline.source, 60) }
+      },
+      reserves: { ambientTonnes: nonnegative(reserves.ambientTonnes), coldTonnes: nonnegative(reserves.coldTonnes), source: clean(reserves.source, 60) },
+      consumerMetrics: {
+        status: clean(consumer.status, 30), sourceKind: clean(consumer.sourceKind, 60),
+        window: { start: date(window.start), end: date(window.end), days: integer(window.days), complete: window.complete === true },
+        counts: { identifiedCustomers: integer(counts.identifiedCustomers), purchaseOrders: integer(counts.purchaseOrders), repeatCustomers: integer(counts.repeatCustomers) },
+        replay: { step: integer(replay.step), total: integer(replay.total) }
+      },
+      weather: {
+        status: clean(weather.status, 30), provider: clean(weather.provider, 40),
+        observedAt: clean(weather.observedAt, 40) || null, currentFetchedAt: clean(weather.currentFetchedAt, 40) || null, dailyFetchedAt: clean(weather.dailyFetchedAt, 40) || null,
+        temperature: number(weather.temperature),
+        days: Array.isArray(weather.days) ? weather.days.slice(0, 7).map(day => ({ date: date(day && day.date), high: number(day && day.high), low: number(day && day.low), dayPrecipitationMm: nonnegative(day && day.dayPrecipitationMm), windScale: clean(day && typeof day.windScale === 'number' ? String(day.windScale) : day && day.windScale, 20) || null })).filter(day => day.date) : []
+      }
+    };
+  }
+
   function summary(input) {
     const source = input && typeof input === 'object' ? input : {};
     const number = (value) => finite(value) ? value : null;
@@ -77,9 +119,11 @@
       refundCount: number(source.refundCount), recentOrder: order, topOrderStores: stores,
       logistics: {
         active: number(source.logistics && source.logistics.active), total: number(source.logistics && source.logistics.total),
-        ratio: number(source.logistics && source.logistics.ratio), source: clean(source.logistics && source.logistics.source, 40)
+        ratio: number(source.logistics && source.logistics.ratio), source: clean(source.logistics && source.logistics.source, 40),
+        onTimePercent: number(source.logistics && source.logistics.onTimePercent), onTimeSource: clean(source.logistics && source.logistics.onTimeSource, 40)
       },
-      plans: { octStores: number(source.plans && source.plans.octStores), octLogistics: number(source.plans && source.plans.octLogistics), source: clean(source.plans && source.plans.source, 40) }
+      plans: { octStores: number(source.plans && source.plans.octStores), octLogistics: number(source.plans && source.plans.octLogistics), source: clean(source.plans && source.plans.source, 40) },
+      ...contextSummary(source)
     };
   }
 
@@ -94,29 +138,69 @@
   }
 
   function localAdvice(snapshot) {
-    const orderCount = count(snapshot.orderCount);
-    const sales = amount(snapshot.displayedSales);
-    const aov = amount(snapshot.averageOrder);
-    const refund = snapshot.refundCount > 0 ? `含${count(snapshot.refundCount)}笔负额订单，建议关注净额变化。` : `零售客单价${aov}，关注订单与销售进度。`;
-    const salesText = snapshot.displayComposition === 'baseline-plus-replay'
-      ? `销售额${sales}，已累计订单净额${amount(snapshot.netOrderSales)}，${orderCount}单。`
-      : `订单净额${amount(snapshot.netOrderSales)}，累计${orderCount}单。`;
-    const top = snapshot.topOrderStores[0];
-    const recent = snapshot.recentOrder;
-    const storeText = recent && recent.name
-      ? `最新订单：${recent.name}，净额${amount(recent.amount)}；建议关注门店销售与备货衔接。`
-      : top ? `${top.name}累计销售${amount(top.amount)}，建议关注门店销售与备货衔接。`
-        : '当前暂无订单门店数据；建议在导入后核对门店销售与备货安排。';
+    const step = integer(snapshot.orderCount) || 0;
+    const pick = options => options[step % options.length];
+    const rule = (type, label, id, text, emphasis, evidence, sources) => ({ type, label, ruleId: id, ruleVersion: RULE_VERSION, text, emphasis, evidence, sources });
+    const recent = snapshot.recentOrder, top = snapshot.topOrderStores[0];
+    const store = recent && recent.name ? recent : top;
+    const net = amount(snapshot.netOrderSales), storeAmount = amount(store && store.amount);
+    const sales = store
+      ? `${store.name}${recent ? '最新净额' : '订单净额'}${storeAmount}；订单净额${net}，先核对SKU可售量再补货。`
+      : `订单净额${net}（${count(snapshot.orderCount)}单）；补齐门店SKU库存与到货，再核对补货。`;
+    const salesText = pick([sales, `订单净额${net}；${snapshot.refundCount > 0 ? '含' + count(snapshot.refundCount) + '笔负额单，先核对退单与对账。' : '先按门店、品类核对销售与到货，再安排补货。'}`]);
     const active = count(snapshot.logistics.active), total = count(snapshot.logistics.total);
-    const ratio = snapshot.logistics.total > 0 && finite(snapshot.logistics.active)
-      ? (snapshot.logistics.active / snapshot.logistics.total * 100).toFixed(2) + '%' : '—';
-    const stores = count(snapshot.plans.octStores), posts = count(snapshot.plans.octLogistics);
+    const ratio = snapshot.logistics.total > 0 && finite(snapshot.logistics.active) ? (snapshot.logistics.active / snapshot.logistics.total * 100).toFixed(2) + '%' : '—';
+    const deliveryBase = snapshot.logistics.source === 'configuration' ? `配送${active}/后勤${total}为配置（${ratio}）` : `配送${active}/后勤${total}口径待核验`;
+    const onTime = snapshot.logistics.onTimeSource === 'configuration' && finite(snapshot.logistics.onTimePercent) && snapshot.logistics.onTimePercent >= 0 && snapshot.logistics.onTimePercent <= 100
+      ? `准时率${snapshot.logistics.onTimePercent.toFixed(1)}%为配置` : '准时率待实测';
+    const delivery = pick([`${deliveryBase}；按时窗合单并补签收时间。`, `${onTime}；按${active}点核对承诺/签收时间与线路。`]);
+    const reserves = snapshot.reserves;
+    const stockText = reserves.source === 'configuration'
+      ? pick([`储备配置：常温${finite(reserves.ambientTonnes) ? reserves.ambientTonnes : '—'}吨/冷链${finite(reserves.coldTonnes) ? reserves.coldTonnes : '—'}吨；补批次、库容与温控交接记录。`, `冷链${finite(reserves.coldTonnes) ? reserves.coldTonnes : '—'}吨为配置；按品类核对温区、交接及批次保质期。`])
+      : '库存批次与库容未接；先核对品类温区、可售量和装卸交接，再安排调拨。';
+    const trend = snapshot.salesTrend, currentMonth = snapshot.businessDate.slice(0, 7), plans = [];
+    const actual = trend.actual.find(row => row.month === currentMonth), forecast = trend.forecast.find(row => row.month === currentMonth);
+    if (trend.currency === 'CNY' && actual && actual.periodStart && actual.periodEnd && actual.periodStart.slice(0, 7) === actual.month && actual.periodEnd.slice(0, 7) === actual.month && actual.periodStart <= actual.periodEnd && finite(actual.amount) && forecast && finite(forecast.amount)) {
+      const period = actual.complete ? `${Number(actual.month.slice(5))}月实绩` : `${Number(actual.month.slice(5))}月${Number(actual.periodStart.slice(8))}–${Number(actual.periodEnd.slice(8))}日实绩`;
+      plans.push({ id: 'plan-monthly-period', text: `${period}${amount(actual.amount)}，整月预估${amount(forecast.amount)}；逐周核对渠道。`, emphasis: [amount(actual.amount), amount(forecast.amount)] });
+    }
+    const completed = trend.actual.filter(row => row.complete === true && row.periodStart === row.month + '-01'
+      && row.periodEnd === new Date(Date.UTC(Number(row.month.slice(0, 4)), Number(row.month.slice(5)), 0)).toISOString().slice(0, 10)
+      && finite(row.amount) && row.amount >= 0 && row.periodEnd < snapshot.businessDate);
+    if (trend.currency === 'CNY' && completed.length && trend.baseline.source === 'user-setting' && finite(trend.baseline.coefficient)) {
+      const days = completed.reduce((sum, row) => sum + (Date.parse(row.periodEnd) - Date.parse(row.periodStart)) / 86400000 + 1, 0);
+      if (days > 0) {
+        const daily = completed.reduce((sum, row) => sum + row.amount, 0) / days, base = daily * trend.baseline.coefficient;
+        plans.push({ id: 'plan-baseline-reference', text: `完整月日均${amount(daily)}×配置${trend.baseline.coefficient.toFixed(2)}＝参考${amount(base)}；复核门店/团餐基数。`, emphasis: [amount(daily), amount(base)] });
+      }
+    }
+    const consumer = snapshot.consumerMetrics, c = consumer.counts;
+    if (['ready', 'ok', 'replay', 'offline', 'paused'].includes(consumer.status) && ['actual', 'historical-order-replay'].includes(consumer.sourceKind)
+      && consumer.window.complete && consumer.window.start && consumer.window.end && consumer.window.days > 0
+      && (Date.parse(consumer.window.end) - Date.parse(consumer.window.start)) / 86400000 + 1 === consumer.window.days
+      && c.identifiedCustomers > 0 && c.purchaseOrders >= c.identifiedCustomers + c.repeatCustomers && c.repeatCustomers !== null && c.repeatCustomers <= c.identifiedCustomers) {
+      plans.push({ id: 'plan-member-channel', text: `${consumer.window.days}天会员多次下单${(c.repeatCustomers / c.identifiedCustomers * 100).toFixed(2)}%${consumer.sourceKind === 'historical-order-replay' ? '（原始记录回放）' : ''}；先试门店/团餐组合。`, emphasis: [] });
+    }
+    if (!plans.length) plans.push({ id: 'plan-channel-readiness', text: `10月规划配置：新增门店${count(snapshot.plans.octStores)}家/后勤${count(snapshot.plans.octLogistics)}点；先核对团餐需求与配送资源。`, emphasis: [] });
+    const plan = pick(plans);
+    const weather = snapshot.weather, sourceTime = Date.parse(weather.dailyFetchedAt || weather.currentFetchedAt || '');
+    const referenceTime = Date.parse(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(snapshot.updatedAt) ? snapshot.updatedAt.replace(' ', 'T') + '+08:00' : snapshot.updatedAt);
+    const freshWeather = ['ready', 'ok'].includes(weather.status) && Number.isFinite(sourceTime) && Number.isFinite(referenceTime) && referenceTime >= sourceTime && referenceTime - sourceTime < 3600000;
+    const coldText = !freshWeather && weather.status ? pick([stockText, '天气为缓存或待核验；出车前核对预报、装卸时窗与温控交接。']) : stockText;
     return [
-      { type: 'data', label: '运营', text: salesText + refund, emphasis: [sales, amount(snapshot.netOrderSales), orderCount + '单', aov] },
-      { type: 'stock', label: '门店', text: storeText, emphasis: [recent && recent.name || top && top.name || '', recent ? amount(recent.amount) : top ? amount(top.amount) : ''].filter(Boolean) },
-      { type: 'forecast', label: '配送', text: `活跃配送网点${active}个 / 后勤网点${total}个，占比${ratio}；建议核对网点服务与配送安排。`, emphasis: [active + '个', total + '个', ratio] },
-      { type: 'plan', label: '拓展', text: `10月预估新增门店${stores}家、后勤网点${posts}个；建议核对开业和配送资源安排。`, emphasis: [stores + '家', posts + '个'] }
+      rule('stock', '销售补货', 'sales-order-replenishment', salesText, [net, store && store.name || '', storeAmount], { netOrderSales: snapshot.netOrderSales, recentOrder: recent, refundCount: snapshot.refundCount }, [RESEARCH_SOURCES.network]),
+      rule('forecast', '配送履约', 'delivery-time-window', delivery, [], { ...snapshot.logistics, measuredFulfillmentAvailable: false }, [RESEARCH_SOURCES.network, RESEARCH_SOURCES.coldChain]),
+      rule('data', '库存冷链', 'inventory-cold-handoff', coldText, [], { ...reserves, inventoryBatchesAvailable: false, weatherStatus: weather.status || null, weatherFresh: freshWeather }, [RESEARCH_SOURCES.foodLoss, RESEARCH_SOURCES.coldChain, RESEARCH_SOURCES.scenario]),
+      rule('plan', '经营渠道', plan.id, plan.text, plan.emphasis, { salesTrend: trend, consumerMetrics: consumer, plans: snapshot.plans }, [RESEARCH_SOURCES.network])
     ];
+  }
+
+  function importantEmphasis(value, snapshot) {
+    const store = [snapshot.recentOrder && snapshot.recentOrder.name, ...snapshot.topOrderStores.map(store => store.name)]
+      .filter(Boolean).map(displayText).some(name => value === name);
+    if (store) return [value];
+    if (/%|°|℃|倍|吨|单|点|家|天/.test(value)) return [];
+    return value.match(/[¥￥]\s*-?\d[\d,]*(?:\.\d{1,2})?|-?\d[\d,]*\.\d{2}/g) || [];
   }
 
   function validateAIAdvice(payload) {
@@ -225,8 +309,12 @@
         const card = document.createElement('div'); card.className = 'advice is-updating';
         card.dataset.source = source;
         card.title = (source === 'ai' ? 'AI 代理建议' : '本地规则建议') + ' · ' + snapshot.mode + ' · ' + snapshot.updatedAt;
+        if (item.ruleId) {
+          card.dataset.ruleId = item.ruleId; card.dataset.ruleVersion = item.ruleVersion;
+          card.title += '\n依据：' + JSON.stringify(item.evidence) + '\n研究来源：' + item.sources.join('；');
+        }
         const label = document.createElement('span'); label.className = 'advice-label ' + item.type; label.textContent = item.label;
-        const text = document.createElement('span'); text.className = 'advice-text'; appendEmphasis(text, item.text, item.emphasis);
+        const text = document.createElement('span'); text.className = 'advice-text'; appendEmphasis(text, item.text, item.emphasis.flatMap(value => importantEmphasis(value, snapshot)));
         card.append(label, text); fragment.appendChild(card);
       }
       this.container.replaceChildren(fragment);
