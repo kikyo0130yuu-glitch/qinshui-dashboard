@@ -130,12 +130,12 @@
     const pinned=all.find(s=>s.code==='2001'),others=all.filter(s=>s.code!=='2001');
     const rows=pinned?[...rankWindow(others,state.storeOffset,3),pinned]:rankWindow(all,state.storeOffset,4);state.storeRows=rows;
     $('storeTag').textContent='降序';
-    const name='门店销售额',axisMax=Math.max(30000,Math.ceil(Math.max(0,...all.map(x=>x.value))*1.1/5000)*5000),ticks=[0,500,1000,5000,15000,30000];
+    const name='门店销售额',axisMax=Math.max(30000,Math.ceil(Math.max(0,...all.map(x=>x.value))*1.1/5000)*5000),ticks=[500,1000,5000,10000,20000,30000];
     chart('storeChart').setOption({
       animationDurationUpdate:600,grid:{left:206,right:138,top:20,bottom:55},tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},legend:{show:false},
       xAxis:{type:'value',name:'元',nameLocation:'end',nameGap:64,min:Math.floor(Math.min(0,...all.map(x=>x.value))/1000)*1000,max:axisMax,interval:500,
         nameTextStyle:{color:colors.muted,fontSize:18},axisTick:{show:false},
-        // Preserve monetary distances; put 500 on the second line to separate the three low-value ticks.
+        // Preserve monetary distances; stagger 500 and 1000 to keep both labels legible.
         axisLabel:{color:colors.muted,fontSize:18,align:'left',formatter:n=>ticks.includes(n)?(n===500?'\n500':n>=10000?Number((n/10000).toFixed(1))+'万':n):''},splitLine:{show:false}},
       yAxis:{type:'category',inverse:true,data:rows.map(s=>s.name),axisLabel:{color:colors.text,fontSize:18},axisTick:{show:false},axisLine:{show:false}},
       series:[{name,type:'bar',data:rows.map(s=>({name:s.code,value:s.value})),barWidth:10,itemStyle:{color:{type:'linear',x:0,y:0,x2:1,y2:0,colorStops:[{offset:0,color:'#19495a'},{offset:1,color:'#19cbe5'}]},borderRadius:[0,4,4,0]},

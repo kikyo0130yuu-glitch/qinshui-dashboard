@@ -1,4 +1,4 @@
-# 沁水县供应链智慧运营智慧大屏 · V0.16
+# 沁水县供应链智慧运营指挥大屏 · V0.16.2
 
 2026-10-06更新包，用于覆盖已发布的同一个GitHub Pages仓库。消费者指标已改为真实10天会员统计及随订单回放更新，本包包含完整网页、依赖和匿名聚合数据。
 
@@ -9,7 +9,7 @@
 1. 解压更新包。在GitHub Desktop选择之前发布大屏的仓库，点Fetch origin；出现Pull origin时先拉取远端更新。
 2. GitHub仓库Settings → Pages确认当前发布分支和目录，沿用已有设置。例如main / (root)时复制到仓库根目录；main / docs时复制到docs目录。
 3. Desktop菜单Repository → Show in Finder打开本地仓库。将解压后的index.html、所有.js文件以及assets、components、data整个文件夹复制到之前index.html所在的发布目录，同名网站文件覆盖；目录合并时确认新增的consumer-replay-data.js与data/consumer-replay-metrics.json已加入。保持index.html与assets、components、data同层，并保留.nojekyll。仓库的.git、.github、CNAME和已有.gitignore保持原样。
-4. 回到Desktop的Changes，填写Summary：更新大屏V0.16，点击Commit to当前发布分支，再点Push origin。
+4. 回到Desktop的Changes，填写Summary：更新大屏V0.16.2，点击Commit to当前发布分支，再点Push origin。
 5. 在GitHub的Actions中等待最新Pages部署成功，随后打开原来的网站地址。沿用同一仓库和Pages设置，网址不变；如仍见旧版，用无痕窗口重新检查。
 
 如果Pages的Source为GitHub Actions，自定义工作流决定部署产物目录；应沿用既有流程并让本包成为实际上传的网站产物，不能假定仓库根目录就是发布目录。本包是已完成构建的静态网页，不需要安装依赖或重新构建。
