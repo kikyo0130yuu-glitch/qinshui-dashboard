@@ -233,8 +233,9 @@
       this.drawSweep(radar,[x,y],r,clipId,'radar-business-sweep');
       if(anchor.mode==='town'){
         const appearance=this.data.settings.centerMarkerAppearance;
+        const hasRealOrigin=this.pointInfo.some(info=>info.point.id===this.data.settings.dispatchOriginId);
         this.radarCenterMarker=node('g',{class:'radar-center-marker','aria-label':anchor.name});
-        if(appearance?.symbol==='star'){
+        if(appearance?.symbol==='star'&&!hasRealOrigin){
           // User-requested schematic park label at the town radar anchor. This
           // does not activate or rewrite the UNKNOWN park spreadsheet position.
           this.radarCenterMarker.setAttribute('data-schematic','true');
@@ -247,7 +248,7 @@
           this.radarCenterMarker.append(glyph);
         }else{
           this.radarCenterMarker.append(node('circle',{cx:x,cy:y,r:5,fill:'#a2f5ff',stroke:'#2eace2','stroke-width':2,class:'radar-town-center'}));
-          if(!this.data.settings.showTownLabels)this.radarCenterMarker.append(node('text',{x:x+12,y:y-12,class:'radar-center-label'},anchor.name));
+          if(!this.data.settings.showTownLabels&&!hasRealOrigin)this.radarCenterMarker.append(node('text',{x:x+12,y:y-12,class:'radar-center-label'},anchor.name));
         }
       }
       radar.append(node('text',{x:24,y:this.container.clientHeight-47,'text-anchor':'start',class:'radar-caption'},`${this.data.settings.centerMarkerAppearance?.symbol==='star'?'':anchor.name+' · '}辐射半径 ${radiusKm} km`));

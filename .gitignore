@@ -4,4 +4,5 @@
 *.xlsx
 *.xls
 *.csv
+!data/地图点位缺失与冲突清单.csv
 raw/
