@@ -1,0 +1,89 @@
+name: Qinshui daily weather and Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # UTC 23:17 = next day 07:17 in Asia/Shanghai.
+    - cron: '17 23 * * *'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: qinshui-weather-pages
+  cancel-in-progress: false
+
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Reserve weather requests before calling API
+        if: github.event_name != 'push'
+        env:
+          QWEATHER_API_HOST: ${{ secrets.QWEATHER_API_HOST }}
+          QWEATHER_DEVELOPER_ID: ${{ secrets.QWEATHER_DEVELOPER_ID }}
+          QWEATHER_PROJECT_ID: ${{ secrets.QWEATHER_PROJECT_ID }}
+          QWEATHER_CREDENTIAL_ID: ${{ secrets.QWEATHER_CREDENTIAL_ID }}
+          QWEATHER_PRIVATE_KEY: ${{ secrets.QWEATHER_PRIVATE_KEY }}
+        run: |
+          node automation/daily-weather.cjs --reserve
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add automation/request-ledger.json
+          git commit -m 'Reserve daily weather requests'
+          git push origin HEAD:main
+      - name: Refresh current weather and seven-day forecast
+        id: refresh
+        if: github.event_name != 'push'
+        continue-on-error: true
+        env:
+          QWEATHER_API_HOST: ${{ secrets.QWEATHER_API_HOST }}
+          QWEATHER_DEVELOPER_ID: ${{ secrets.QWEATHER_DEVELOPER_ID }}
+          QWEATHER_PROJECT_ID: ${{ secrets.QWEATHER_PROJECT_ID }}
+          QWEATHER_CREDENTIAL_ID: ${{ secrets.QWEATHER_CREDENTIAL_ID }}
+          QWEATHER_PRIVATE_KEY: ${{ secrets.QWEATHER_PRIVATE_KEY }}
+        run: node automation/daily-weather.cjs --refresh
+      - name: Commit refreshed public weather
+        if: github.event_name != 'push'
+        run: |
+          git add automation/request-ledger.json data/weather-latest.json weather-data.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update Qinshui daily weather snapshot'
+            git push origin HEAD:main
+          fi
+      - name: Configure Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - name: Prepare only public website files
+        run: |
+          mkdir -p "$RUNNER_TEMP/qinshui-pages"
+          cp -R index.html point-collector.html assets components data ./*.js "$RUNNER_TEMP/qinshui-pages/"
+          touch "$RUNNER_TEMP/qinshui-pages/.nojekyll"
+      - name: Upload website
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: ${{ runner.temp }}/qinshui-pages
+      - name: Deploy website
+        id: deploy
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+      - name: Report weather refresh failure after deploying retained snapshot
+        if: steps.refresh.outcome == 'failure'
+        run: |
+          echo 'Weather refresh failed; the last available snapshot was retained. Check the refresh step.'
+          exit 1

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "sourceKind": "user-provided-coordinate-corrections",
+  "providedOn": "2026-10-07",
+  "coordinateSystem": "GCJ-02",
+  "sourceWebsite": "https://www.amap.com/",
+  "coordinateSystemBasis": "沿用用户此前确认整批点位都来自高德的来源口径，本次按名称更正3处原始经纬度。",
+  "precedence": "本次用户更正优先于同ID的原Excel坐标；原表与原提取数据保留，不覆盖。",
+  "points": [
+    {"id":"canteen_row_016","name":"交通运输事业发展中心","sourceRow":16,"longitude":112.235135,"latitude":35.687736},
+    {"id":"canteen_row_020","name":"苏庄大食堂","sourceRow":20,"longitude":112.374017,"latitude":35.853388},
+    {"id":"canteen_row_036","name":"梁庄幸福食堂","sourceRow":36,"longitude":112.110860,"latitude":35.655496}
+  ]
+}

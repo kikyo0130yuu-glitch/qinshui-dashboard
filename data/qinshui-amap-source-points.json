@@ -1,0 +1,11 @@
+{
+  "sourceWebsite": "https://www.amap.com/ssr/coordinate-picker",
+  "coordinateSystem": "GCJ-02",
+  "providedAt": "2026-10-06",
+  "sourceKind": "user-provided-amap-coordinate-picker-results",
+  "points": [
+    {"id":"canteen_row_007","sourceName":"河头共享食堂","longitude":112.387186,"latitude":35.732573},
+    {"id":"store_row_066","sourceName":"金御府店","longitude":112.159248,"latitude":35.679935},
+    {"id":"warehouse_row_075","sourceName":"供应链园区","longitude":112.121858,"latitude":35.655394}
+  ]
+}
