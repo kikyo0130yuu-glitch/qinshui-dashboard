@@ -1,0 +1,3964 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "fileName": "erp商品类别.xlsx",
+    "sheet": "SheetJS",
+    "headerRow": 2,
+    "sha256": "0902a66185b5d27472b4841e2d124f63533d3d383c42369f0147295ec7986f6d",
+    "receivedOn": "2026-10-06"
+  },
+  "fields": {
+    "code": {
+      "column": "B",
+      "header": "类别编码"
+    },
+    "name": {
+      "column": "C",
+      "header": "类别名称"
+    },
+    "level": {
+      "column": "D",
+      "header": "类别级次"
+    },
+    "parentCode": {
+      "column": "E",
+      "header": "父类编码"
+    },
+    "parentName": {
+      "column": "F",
+      "header": "父类名称"
+    }
+  },
+  "moduleMapping": {
+    "moduleName": "商品维度 · 价格重心与生鲜预估",
+    "secondLevelFilter": {
+      "field": "level",
+      "value": "中类"
+    },
+    "displayNameField": "name",
+    "stableKeyField": "code",
+    "skuCategoryResolution": "SKU对应最小级类别编码后，按父类编码逐级查找类别级次为中类的祖先。",
+    "refreshPolicy": "替换导出表时按表头识别字段，保留类别编码为字符串，不依赖行号和当前列位置。",
+    "missingSkuOrCategoryPolicy": "标为未映射，不按名称猜测、不截断编码推断父类。",
+    "calculationStatus": "仅已确认分类字典；SKU类别对应、销售事实及价格/预估算法仍待接入。"
+  },
+  "counts": {
+    "total": 434,
+    "byLevel": {
+      "总类": 1,
+      "大类": 6,
+      "中类": 19,
+      "小类": 70,
+      "细类": 338
+    },
+    "moduleSecondLevel": 19
+  },
+  "categories": [
+    {
+      "code": "00",
+      "name": "总类",
+      "level": "总类",
+      "parentCode": null,
+      "parentName": null,
+      "sourceRow": 3,
+      "erpRow": 1
+    },
+    {
+      "code": "10",
+      "name": "生鲜类",
+      "level": "大类",
+      "parentCode": "00",
+      "parentName": "总类",
+      "sourceRow": 4,
+      "erpRow": 2
+    },
+    {
+      "code": "1001",
+      "name": "蔬果豆菌类",
+      "level": "中类",
+      "parentCode": "10",
+      "parentName": "生鲜类",
+      "sourceRow": 5,
+      "erpRow": 3
+    },
+    {
+      "code": "100101",
+      "name": "蔬菜",
+      "level": "小类",
+      "parentCode": "1001",
+      "parentName": "蔬果豆菌类",
+      "sourceRow": 6,
+      "erpRow": 4
+    },
+    {
+      "code": "10010101",
+      "name": "叶菜",
+      "level": "细类",
+      "parentCode": "100101",
+      "parentName": "蔬菜",
+      "sourceRow": 7,
+      "erpRow": 5
+    },
+    {
+      "code": "10010102",
+      "name": "调味类菜",
+      "level": "细类",
+      "parentCode": "100101",
+      "parentName": "蔬菜",
+      "sourceRow": 8,
+      "erpRow": 6
+    },
+    {
+      "code": "10010103",
+      "name": "结球花菜类",
+      "level": "细类",
+      "parentCode": "100101",
+      "parentName": "蔬菜",
+      "sourceRow": 9,
+      "erpRow": 7
+    },
+    {
+      "code": "10010104",
+      "name": "瓜果类菜",
+      "level": "细类",
+      "parentCode": "100101",
+      "parentName": "蔬菜",
+      "sourceRow": 10,
+      "erpRow": 8
+    },
+    {
+      "code": "10010105",
+      "name": "豆类菜",
+      "level": "细类",
+      "parentCode": "100101",
+      "parentName": "蔬菜",
+      "sourceRow": 11,
+      "erpRow": 9
+    },
+    {
+      "code": "10010106",
+      "name": "根茎类菜",
+      "level": "细类",
+      "parentCode": "100101",
+      "parentName": "蔬菜",
+      "sourceRow": 12,
+      "erpRow": 10
+    },
+    {
+      "code": "10010107",
+      "name": "藕笋水发菜",
+      "level": "细类",
+      "parentCode": "100101",
+      "parentName": "蔬菜",
+      "sourceRow": 13,
+      "erpRow": 11
+    },
+    {
+      "code": "10010108",
+      "name": "袋装蔬菜类",
+      "level": "细类",
+      "parentCode": "100101",
+      "parentName": "蔬菜",
+      "sourceRow": 14,
+      "erpRow": 12
+    },
+    {
+      "code": "100102",
+      "name": "水果",
+      "level": "小类",
+      "parentCode": "1001",
+      "parentName": "蔬果豆菌类",
+      "sourceRow": 15,
+      "erpRow": 13
+    },
+    {
+      "code": "10010201",
+      "name": "苹果梨蕉类",
+      "level": "细类",
+      "parentCode": "100102",
+      "parentName": "水果",
+      "sourceRow": 16,
+      "erpRow": 14
+    },
+    {
+      "code": "10010202",
+      "name": "柑橘橙",
+      "level": "细类",
+      "parentCode": "100102",
+      "parentName": "水果",
+      "sourceRow": 17,
+      "erpRow": 15
+    },
+    {
+      "code": "10010203",
+      "name": "芒果菩提类",
+      "level": "细类",
+      "parentCode": "100102",
+      "parentName": "水果",
+      "sourceRow": 18,
+      "erpRow": 16
+    },
+    {
+      "code": "10010204",
+      "name": "桃李类",
+      "level": "细类",
+      "parentCode": "100102",
+      "parentName": "水果",
+      "sourceRow": 19,
+      "erpRow": 17
+    },
+    {
+      "code": "10010205",
+      "name": "瓜类水果",
+      "level": "细类",
+      "parentCode": "100102",
+      "parentName": "水果",
+      "sourceRow": 20,
+      "erpRow": 18
+    },
+    {
+      "code": "10010206",
+      "name": "杂果类",
+      "level": "细类",
+      "parentCode": "100102",
+      "parentName": "水果",
+      "sourceRow": 21,
+      "erpRow": 19
+    },
+    {
+      "code": "10010207",
+      "name": "盒装水果类",
+      "level": "细类",
+      "parentCode": "100102",
+      "parentName": "水果",
+      "sourceRow": 22,
+      "erpRow": 20
+    },
+    {
+      "code": "100103",
+      "name": "菌蛋豆类",
+      "level": "小类",
+      "parentCode": "1001",
+      "parentName": "蔬果豆菌类",
+      "sourceRow": 23,
+      "erpRow": 21
+    },
+    {
+      "code": "10010301",
+      "name": "菌类蔬菜",
+      "level": "细类",
+      "parentCode": "100103",
+      "parentName": "菌蛋豆类",
+      "sourceRow": 24,
+      "erpRow": 22
+    },
+    {
+      "code": "10010302",
+      "name": "鲜蛋类",
+      "level": "细类",
+      "parentCode": "100103",
+      "parentName": "菌蛋豆类",
+      "sourceRow": 25,
+      "erpRow": 23
+    },
+    {
+      "code": "10010303",
+      "name": "松花皮蛋类",
+      "level": "细类",
+      "parentCode": "100103",
+      "parentName": "菌蛋豆类",
+      "sourceRow": 26,
+      "erpRow": 24
+    },
+    {
+      "code": "10010304",
+      "name": "咸蛋类",
+      "level": "细类",
+      "parentCode": "100103",
+      "parentName": "菌蛋豆类",
+      "sourceRow": 27,
+      "erpRow": 25
+    },
+    {
+      "code": "10010305",
+      "name": "礼盒蛋类",
+      "level": "细类",
+      "parentCode": "100103",
+      "parentName": "菌蛋豆类",
+      "sourceRow": 28,
+      "erpRow": 26
+    },
+    {
+      "code": "10010306",
+      "name": "豆制品菜",
+      "level": "细类",
+      "parentCode": "100103",
+      "parentName": "菌蛋豆类",
+      "sourceRow": 29,
+      "erpRow": 27
+    },
+    {
+      "code": "1002",
+      "name": "鲜活水产肉类",
+      "level": "中类",
+      "parentCode": "10",
+      "parentName": "生鲜类",
+      "sourceRow": 30,
+      "erpRow": 28
+    },
+    {
+      "code": "100201",
+      "name": "鲜水产",
+      "level": "小类",
+      "parentCode": "1002",
+      "parentName": "鲜活水产肉类",
+      "sourceRow": 31,
+      "erpRow": 29
+    },
+    {
+      "code": "10020101",
+      "name": "活鱼",
+      "level": "细类",
+      "parentCode": "100201",
+      "parentName": "鲜水产",
+      "sourceRow": 32,
+      "erpRow": 30
+    },
+    {
+      "code": "10020102",
+      "name": "水发产品",
+      "level": "细类",
+      "parentCode": "100201",
+      "parentName": "鲜水产",
+      "sourceRow": 33,
+      "erpRow": 31
+    },
+    {
+      "code": "10020103",
+      "name": "活海鲜贝类",
+      "level": "细类",
+      "parentCode": "100201",
+      "parentName": "鲜水产",
+      "sourceRow": 34,
+      "erpRow": 32
+    },
+    {
+      "code": "100202",
+      "name": "鲜肉",
+      "level": "小类",
+      "parentCode": "1002",
+      "parentName": "鲜活水产肉类",
+      "sourceRow": 35,
+      "erpRow": 33
+    },
+    {
+      "code": "10020201",
+      "name": "鲜大肉",
+      "level": "细类",
+      "parentCode": "100202",
+      "parentName": "鲜肉",
+      "sourceRow": 36,
+      "erpRow": 34
+    },
+    {
+      "code": "10020202",
+      "name": "鲜牛肉",
+      "level": "细类",
+      "parentCode": "100202",
+      "parentName": "鲜肉",
+      "sourceRow": 37,
+      "erpRow": 35
+    },
+    {
+      "code": "10020203",
+      "name": "鲜羊肉",
+      "level": "细类",
+      "parentCode": "100202",
+      "parentName": "鲜肉",
+      "sourceRow": 38,
+      "erpRow": 36
+    },
+    {
+      "code": "10020204",
+      "name": "鲜家禽",
+      "level": "细类",
+      "parentCode": "100202",
+      "parentName": "鲜肉",
+      "sourceRow": 39,
+      "erpRow": 37
+    },
+    {
+      "code": "10020205",
+      "name": "其他鲜肉",
+      "level": "细类",
+      "parentCode": "100202",
+      "parentName": "鲜肉",
+      "sourceRow": 40,
+      "erpRow": 38
+    },
+    {
+      "code": "1003",
+      "name": "冻货类",
+      "level": "中类",
+      "parentCode": "10",
+      "parentName": "生鲜类",
+      "sourceRow": 41,
+      "erpRow": 39
+    },
+    {
+      "code": "100301",
+      "name": "冷冻半成品",
+      "level": "小类",
+      "parentCode": "1003",
+      "parentName": "冻货类",
+      "sourceRow": 42,
+      "erpRow": 40
+    },
+    {
+      "code": "10030101",
+      "name": "冻饺子",
+      "level": "细类",
+      "parentCode": "100301",
+      "parentName": "冷冻半成品",
+      "sourceRow": 43,
+      "erpRow": 41
+    },
+    {
+      "code": "10030102",
+      "name": "冻混沌",
+      "level": "细类",
+      "parentCode": "100301",
+      "parentName": "冷冻半成品",
+      "sourceRow": 44,
+      "erpRow": 42
+    },
+    {
+      "code": "10030103",
+      "name": "冻汤圆",
+      "level": "细类",
+      "parentCode": "100301",
+      "parentName": "冷冻半成品",
+      "sourceRow": 45,
+      "erpRow": 43
+    },
+    {
+      "code": "10030104",
+      "name": "冻素速食",
+      "level": "细类",
+      "parentCode": "100301",
+      "parentName": "冷冻半成品",
+      "sourceRow": 46,
+      "erpRow": 44
+    },
+    {
+      "code": "10030105",
+      "name": "冻肉速食",
+      "level": "细类",
+      "parentCode": "100301",
+      "parentName": "冷冻半成品",
+      "sourceRow": 47,
+      "erpRow": 45
+    },
+    {
+      "code": "100302",
+      "name": "冷冻肉类",
+      "level": "小类",
+      "parentCode": "1003",
+      "parentName": "冻货类",
+      "sourceRow": 48,
+      "erpRow": 46
+    },
+    {
+      "code": "10030201",
+      "name": "冻鸡副",
+      "level": "细类",
+      "parentCode": "100302",
+      "parentName": "冷冻肉类",
+      "sourceRow": 49,
+      "erpRow": 47
+    },
+    {
+      "code": "10030202",
+      "name": "冻鸭副",
+      "level": "细类",
+      "parentCode": "100302",
+      "parentName": "冷冻肉类",
+      "sourceRow": 50,
+      "erpRow": 48
+    },
+    {
+      "code": "10030203",
+      "name": "冻虾贝类",
+      "level": "细类",
+      "parentCode": "100302",
+      "parentName": "冷冻肉类",
+      "sourceRow": 51,
+      "erpRow": 49
+    },
+    {
+      "code": "10030204",
+      "name": "冻鱼类",
+      "level": "细类",
+      "parentCode": "100302",
+      "parentName": "冷冻肉类",
+      "sourceRow": 52,
+      "erpRow": 50
+    },
+    {
+      "code": "10030205",
+      "name": "冻牛肉牛排",
+      "level": "细类",
+      "parentCode": "100302",
+      "parentName": "冷冻肉类",
+      "sourceRow": 53,
+      "erpRow": 51
+    },
+    {
+      "code": "10030206",
+      "name": "冻羊肉",
+      "level": "细类",
+      "parentCode": "100302",
+      "parentName": "冷冻肉类",
+      "sourceRow": 54,
+      "erpRow": 52
+    },
+    {
+      "code": "10030207",
+      "name": "冻猪肉",
+      "level": "细类",
+      "parentCode": "100302",
+      "parentName": "冷冻肉类",
+      "sourceRow": 55,
+      "erpRow": 53
+    },
+    {
+      "code": "10030208",
+      "name": "冻火锅丸子",
+      "level": "细类",
+      "parentCode": "100302",
+      "parentName": "冷冻肉类",
+      "sourceRow": 56,
+      "erpRow": 54
+    },
+    {
+      "code": "1004",
+      "name": "临时采购",
+      "level": "中类",
+      "parentCode": "10",
+      "parentName": "生鲜类",
+      "sourceRow": 57,
+      "erpRow": 55
+    },
+    {
+      "code": "100401",
+      "name": "临时采购",
+      "level": "小类",
+      "parentCode": "1004",
+      "parentName": "临时采购",
+      "sourceRow": 58,
+      "erpRow": 56
+    },
+    {
+      "code": "10040101",
+      "name": "临时采购",
+      "level": "细类",
+      "parentCode": "100401",
+      "parentName": "临时采购",
+      "sourceRow": 59,
+      "erpRow": 57
+    },
+    {
+      "code": "11",
+      "name": "即食类",
+      "level": "大类",
+      "parentCode": "00",
+      "parentName": "总类",
+      "sourceRow": 60,
+      "erpRow": 58
+    },
+    {
+      "code": "1101",
+      "name": "环岛类",
+      "level": "中类",
+      "parentCode": "11",
+      "parentName": "即食类",
+      "sourceRow": 61,
+      "erpRow": 59
+    },
+    {
+      "code": "110101",
+      "name": "熟食",
+      "level": "小类",
+      "parentCode": "1101",
+      "parentName": "环岛类",
+      "sourceRow": 62,
+      "erpRow": 60
+    },
+    {
+      "code": "11010101",
+      "name": "现卤",
+      "level": "细类",
+      "parentCode": "110101",
+      "parentName": "熟食",
+      "sourceRow": 63,
+      "erpRow": 61
+    },
+    {
+      "code": "11010102",
+      "name": "现炸",
+      "level": "细类",
+      "parentCode": "110101",
+      "parentName": "熟食",
+      "sourceRow": 64,
+      "erpRow": 62
+    },
+    {
+      "code": "11010103",
+      "name": "现烤",
+      "level": "细类",
+      "parentCode": "110101",
+      "parentName": "熟食",
+      "sourceRow": 65,
+      "erpRow": 63
+    },
+    {
+      "code": "110102",
+      "name": "烘焙",
+      "level": "小类",
+      "parentCode": "1101",
+      "parentName": "环岛类",
+      "sourceRow": 66,
+      "erpRow": 64
+    },
+    {
+      "code": "11010201",
+      "name": "现烤面包",
+      "level": "细类",
+      "parentCode": "110102",
+      "parentName": "烘焙",
+      "sourceRow": 67,
+      "erpRow": 65
+    },
+    {
+      "code": "11010202",
+      "name": "常温干点",
+      "level": "细类",
+      "parentCode": "110102",
+      "parentName": "烘焙",
+      "sourceRow": 68,
+      "erpRow": 66
+    },
+    {
+      "code": "11010203",
+      "name": "冷藏糕点",
+      "level": "细类",
+      "parentCode": "110102",
+      "parentName": "烘焙",
+      "sourceRow": 69,
+      "erpRow": 67
+    },
+    {
+      "code": "110103",
+      "name": "面点",
+      "level": "小类",
+      "parentCode": "1101",
+      "parentName": "环岛类",
+      "sourceRow": 70,
+      "erpRow": 68
+    },
+    {
+      "code": "11010301",
+      "name": "现加工面点",
+      "level": "细类",
+      "parentCode": "110103",
+      "parentName": "面点",
+      "sourceRow": 71,
+      "erpRow": 69
+    },
+    {
+      "code": "11010302",
+      "name": "现加工面点半成品",
+      "level": "细类",
+      "parentCode": "110103",
+      "parentName": "面点",
+      "sourceRow": 72,
+      "erpRow": 70
+    },
+    {
+      "code": "1102",
+      "name": "即食街",
+      "level": "中类",
+      "parentCode": "11",
+      "parentName": "即食类",
+      "sourceRow": 73,
+      "erpRow": 71
+    },
+    {
+      "code": "110201",
+      "name": "小吃",
+      "level": "小类",
+      "parentCode": "1102",
+      "parentName": "即食街",
+      "sourceRow": 74,
+      "erpRow": 72
+    },
+    {
+      "code": "11020101",
+      "name": "现做小吃",
+      "level": "细类",
+      "parentCode": "110201",
+      "parentName": "小吃",
+      "sourceRow": 75,
+      "erpRow": 73
+    },
+    {
+      "code": "20",
+      "name": "食品类",
+      "level": "大类",
+      "parentCode": "00",
+      "parentName": "总类",
+      "sourceRow": 76,
+      "erpRow": 74
+    },
+    {
+      "code": "2002",
+      "name": "杂粮干货类",
+      "level": "中类",
+      "parentCode": "20",
+      "parentName": "食品类",
+      "sourceRow": 77,
+      "erpRow": 75
+    },
+    {
+      "code": "200201",
+      "name": "粮油",
+      "level": "小类",
+      "parentCode": "2002",
+      "parentName": "杂粮干货类",
+      "sourceRow": 78,
+      "erpRow": 76
+    },
+    {
+      "code": "20020101",
+      "name": "面粉",
+      "level": "细类",
+      "parentCode": "200201",
+      "parentName": "粮油",
+      "sourceRow": 79,
+      "erpRow": 77
+    },
+    {
+      "code": "20020102",
+      "name": "大米",
+      "level": "细类",
+      "parentCode": "200201",
+      "parentName": "粮油",
+      "sourceRow": 80,
+      "erpRow": 78
+    },
+    {
+      "code": "20020103",
+      "name": "食用油",
+      "level": "细类",
+      "parentCode": "200201",
+      "parentName": "粮油",
+      "sourceRow": 81,
+      "erpRow": 79
+    },
+    {
+      "code": "200202",
+      "name": "杂粮",
+      "level": "小类",
+      "parentCode": "2002",
+      "parentName": "杂粮干货类",
+      "sourceRow": 82,
+      "erpRow": 80
+    },
+    {
+      "code": "20020201",
+      "name": "谷物细粉",
+      "level": "细类",
+      "parentCode": "200202",
+      "parentName": "杂粮",
+      "sourceRow": 83,
+      "erpRow": 81
+    },
+    {
+      "code": "20020202",
+      "name": "豆类杂粮",
+      "level": "细类",
+      "parentCode": "200202",
+      "parentName": "杂粮",
+      "sourceRow": 84,
+      "erpRow": 82
+    },
+    {
+      "code": "200203",
+      "name": "南北干货",
+      "level": "小类",
+      "parentCode": "2002",
+      "parentName": "杂粮干货类",
+      "sourceRow": 85,
+      "erpRow": 83
+    },
+    {
+      "code": "20020301",
+      "name": "腊肉腊肠",
+      "level": "细类",
+      "parentCode": "200203",
+      "parentName": "南北干货",
+      "sourceRow": 86,
+      "erpRow": 84
+    },
+    {
+      "code": "20020302",
+      "name": "粉丝菜干货",
+      "level": "细类",
+      "parentCode": "200203",
+      "parentName": "南北干货",
+      "sourceRow": 87,
+      "erpRow": 85
+    },
+    {
+      "code": "20020303",
+      "name": "菌类干货",
+      "level": "细类",
+      "parentCode": "200203",
+      "parentName": "南北干货",
+      "sourceRow": 88,
+      "erpRow": 86
+    },
+    {
+      "code": "20020304",
+      "name": "豆品干货",
+      "level": "细类",
+      "parentCode": "200203",
+      "parentName": "南北干货",
+      "sourceRow": 89,
+      "erpRow": 87
+    },
+    {
+      "code": "20020305",
+      "name": "糖类干货",
+      "level": "细类",
+      "parentCode": "200203",
+      "parentName": "南北干货",
+      "sourceRow": 90,
+      "erpRow": 88
+    },
+    {
+      "code": "20020306",
+      "name": "调味类干货",
+      "level": "细类",
+      "parentCode": "200203",
+      "parentName": "南北干货",
+      "sourceRow": 91,
+      "erpRow": 89
+    },
+    {
+      "code": "20020307",
+      "name": "干海产",
+      "level": "细类",
+      "parentCode": "200203",
+      "parentName": "南北干货",
+      "sourceRow": 92,
+      "erpRow": 90
+    },
+    {
+      "code": "20020308",
+      "name": "散酱菜",
+      "level": "细类",
+      "parentCode": "200203",
+      "parentName": "南北干货",
+      "sourceRow": 93,
+      "erpRow": 91
+    },
+    {
+      "code": "2004",
+      "name": "日配类",
+      "level": "中类",
+      "parentCode": "20",
+      "parentName": "食品类",
+      "sourceRow": 94,
+      "erpRow": 92
+    },
+    {
+      "code": "200401",
+      "name": "乳制品",
+      "level": "小类",
+      "parentCode": "2004",
+      "parentName": "日配类",
+      "sourceRow": 95,
+      "erpRow": 93
+    },
+    {
+      "code": "20040101",
+      "name": "常温奶",
+      "level": "细类",
+      "parentCode": "200401",
+      "parentName": "乳制品",
+      "sourceRow": 96,
+      "erpRow": 94
+    },
+    {
+      "code": "20040102",
+      "name": "低温奶",
+      "level": "细类",
+      "parentCode": "200401",
+      "parentName": "乳制品",
+      "sourceRow": 97,
+      "erpRow": 95
+    },
+    {
+      "code": "20040103",
+      "name": "调味奶",
+      "level": "细类",
+      "parentCode": "200401",
+      "parentName": "乳制品",
+      "sourceRow": 98,
+      "erpRow": 96
+    },
+    {
+      "code": "200402",
+      "name": "面包糕点",
+      "level": "小类",
+      "parentCode": "2004",
+      "parentName": "日配类",
+      "sourceRow": 99,
+      "erpRow": 97
+    },
+    {
+      "code": "20040201",
+      "name": "面包",
+      "level": "细类",
+      "parentCode": "200402",
+      "parentName": "面包糕点",
+      "sourceRow": 100,
+      "erpRow": 98
+    },
+    {
+      "code": "20040202",
+      "name": "糕点",
+      "level": "细类",
+      "parentCode": "200402",
+      "parentName": "面包糕点",
+      "sourceRow": 101,
+      "erpRow": 99
+    },
+    {
+      "code": "200403",
+      "name": "冰品",
+      "level": "小类",
+      "parentCode": "2004",
+      "parentName": "日配类",
+      "sourceRow": 102,
+      "erpRow": 100
+    },
+    {
+      "code": "20040301",
+      "name": "雪糕",
+      "level": "细类",
+      "parentCode": "200403",
+      "parentName": "冰品",
+      "sourceRow": 103,
+      "erpRow": 101
+    },
+    {
+      "code": "20040302",
+      "name": "冰激凌",
+      "level": "细类",
+      "parentCode": "200403",
+      "parentName": "冰品",
+      "sourceRow": 104,
+      "erpRow": 102
+    },
+    {
+      "code": "200404",
+      "name": "冷藏食品",
+      "level": "小类",
+      "parentCode": "2004",
+      "parentName": "日配类",
+      "sourceRow": 105,
+      "erpRow": 103
+    },
+    {
+      "code": "20040401",
+      "name": "低温肉制品",
+      "level": "细类",
+      "parentCode": "200404",
+      "parentName": "冷藏食品",
+      "sourceRow": 106,
+      "erpRow": 104
+    },
+    {
+      "code": "20040402",
+      "name": "火腿肠",
+      "level": "细类",
+      "parentCode": "200404",
+      "parentName": "冷藏食品",
+      "sourceRow": 107,
+      "erpRow": 105
+    },
+    {
+      "code": "200405",
+      "name": "槟榔",
+      "level": "小类",
+      "parentCode": "2004",
+      "parentName": "日配类",
+      "sourceRow": 108,
+      "erpRow": 106
+    },
+    {
+      "code": "20040501",
+      "name": "槟榔",
+      "level": "细类",
+      "parentCode": "200405",
+      "parentName": "槟榔",
+      "sourceRow": 109,
+      "erpRow": 107
+    },
+    {
+      "code": "2005",
+      "name": "水饮料",
+      "level": "中类",
+      "parentCode": "20",
+      "parentName": "食品类",
+      "sourceRow": 110,
+      "erpRow": 108
+    },
+    {
+      "code": "200501",
+      "name": "水系列",
+      "level": "小类",
+      "parentCode": "2005",
+      "parentName": "水饮料",
+      "sourceRow": 111,
+      "erpRow": 109
+    },
+    {
+      "code": "20050101",
+      "name": "纯净水",
+      "level": "细类",
+      "parentCode": "200501",
+      "parentName": "水系列",
+      "sourceRow": 112,
+      "erpRow": 110
+    },
+    {
+      "code": "20050102",
+      "name": "矿泉水",
+      "level": "细类",
+      "parentCode": "200501",
+      "parentName": "水系列",
+      "sourceRow": 113,
+      "erpRow": 111
+    },
+    {
+      "code": "20050103",
+      "name": "苏打水",
+      "level": "细类",
+      "parentCode": "200501",
+      "parentName": "水系列",
+      "sourceRow": 114,
+      "erpRow": 112
+    },
+    {
+      "code": "20050104",
+      "name": "加味水",
+      "level": "细类",
+      "parentCode": "200501",
+      "parentName": "水系列",
+      "sourceRow": 115,
+      "erpRow": 113
+    },
+    {
+      "code": "200502",
+      "name": "功能饮料",
+      "level": "小类",
+      "parentCode": "2005",
+      "parentName": "水饮料",
+      "sourceRow": 116,
+      "erpRow": 114
+    },
+    {
+      "code": "20050201",
+      "name": "发酵饮料",
+      "level": "细类",
+      "parentCode": "200502",
+      "parentName": "功能饮料",
+      "sourceRow": 117,
+      "erpRow": 115
+    },
+    {
+      "code": "20050202",
+      "name": "能量型",
+      "level": "细类",
+      "parentCode": "200502",
+      "parentName": "功能饮料",
+      "sourceRow": 118,
+      "erpRow": 116
+    },
+    {
+      "code": "20050203",
+      "name": "咖啡饮料",
+      "level": "细类",
+      "parentCode": "200502",
+      "parentName": "功能饮料",
+      "sourceRow": 119,
+      "erpRow": 117
+    },
+    {
+      "code": "200503",
+      "name": "茶饮料",
+      "level": "小类",
+      "parentCode": "2005",
+      "parentName": "水饮料",
+      "sourceRow": 120,
+      "erpRow": 118
+    },
+    {
+      "code": "20050301",
+      "name": "红/绿/乌龙茶",
+      "level": "细类",
+      "parentCode": "200503",
+      "parentName": "茶饮料",
+      "sourceRow": 121,
+      "erpRow": 119
+    },
+    {
+      "code": "20050302",
+      "name": "花茶",
+      "level": "细类",
+      "parentCode": "200503",
+      "parentName": "茶饮料",
+      "sourceRow": 122,
+      "erpRow": 120
+    },
+    {
+      "code": "20050303",
+      "name": "凉茶",
+      "level": "细类",
+      "parentCode": "200503",
+      "parentName": "茶饮料",
+      "sourceRow": 123,
+      "erpRow": 121
+    },
+    {
+      "code": "200504",
+      "name": "果汁饮料",
+      "level": "小类",
+      "parentCode": "2005",
+      "parentName": "水饮料",
+      "sourceRow": 124,
+      "erpRow": 122
+    },
+    {
+      "code": "20050401",
+      "name": "瓶装果汁饮料",
+      "level": "细类",
+      "parentCode": "200504",
+      "parentName": "果汁饮料",
+      "sourceRow": 125,
+      "erpRow": 123
+    },
+    {
+      "code": "20050402",
+      "name": "利乐包果汁",
+      "level": "细类",
+      "parentCode": "200504",
+      "parentName": "果汁饮料",
+      "sourceRow": 126,
+      "erpRow": 124
+    },
+    {
+      "code": "20050403",
+      "name": "听装果汁饮料",
+      "level": "细类",
+      "parentCode": "200504",
+      "parentName": "果汁饮料",
+      "sourceRow": 127,
+      "erpRow": 125
+    },
+    {
+      "code": "20050404",
+      "name": "玻璃瓶果汁饮料",
+      "level": "细类",
+      "parentCode": "200504",
+      "parentName": "果汁饮料",
+      "sourceRow": 128,
+      "erpRow": 126
+    },
+    {
+      "code": "200505",
+      "name": "碳酸饮料",
+      "level": "小类",
+      "parentCode": "2005",
+      "parentName": "水饮料",
+      "sourceRow": 129,
+      "erpRow": 127
+    },
+    {
+      "code": "20050501",
+      "name": "听装碳酸饮料",
+      "level": "细类",
+      "parentCode": "200505",
+      "parentName": "碳酸饮料",
+      "sourceRow": 130,
+      "erpRow": 128
+    },
+    {
+      "code": "20050502",
+      "name": "瓶装碳酸饮料",
+      "level": "细类",
+      "parentCode": "200505",
+      "parentName": "碳酸饮料",
+      "sourceRow": 131,
+      "erpRow": 129
+    },
+    {
+      "code": "200506",
+      "name": "乳饮蛋白饮料",
+      "level": "小类",
+      "parentCode": "2005",
+      "parentName": "水饮料",
+      "sourceRow": 132,
+      "erpRow": 130
+    },
+    {
+      "code": "20050601",
+      "name": "乳酸菌",
+      "level": "细类",
+      "parentCode": "200506",
+      "parentName": "乳饮蛋白饮料",
+      "sourceRow": 133,
+      "erpRow": 131
+    },
+    {
+      "code": "20050602",
+      "name": "乳品饮料",
+      "level": "细类",
+      "parentCode": "200506",
+      "parentName": "乳饮蛋白饮料",
+      "sourceRow": 134,
+      "erpRow": 132
+    },
+    {
+      "code": "20050603",
+      "name": "粗粮蛋白饮料",
+      "level": "细类",
+      "parentCode": "200506",
+      "parentName": "乳饮蛋白饮料",
+      "sourceRow": 135,
+      "erpRow": 133
+    },
+    {
+      "code": "2006",
+      "name": "休闲食品",
+      "level": "中类",
+      "parentCode": "20",
+      "parentName": "食品类",
+      "sourceRow": 136,
+      "erpRow": 134
+    },
+    {
+      "code": "200601",
+      "name": "干货休闲食品",
+      "level": "小类",
+      "parentCode": "2006",
+      "parentName": "休闲食品",
+      "sourceRow": 137,
+      "erpRow": 135
+    },
+    {
+      "code": "20060101",
+      "name": "包装瓜子",
+      "level": "细类",
+      "parentCode": "200601",
+      "parentName": "干货休闲食品",
+      "sourceRow": 138,
+      "erpRow": 136
+    },
+    {
+      "code": "20060102",
+      "name": "包装花生",
+      "level": "细类",
+      "parentCode": "200601",
+      "parentName": "干货休闲食品",
+      "sourceRow": 139,
+      "erpRow": 137
+    },
+    {
+      "code": "20060103",
+      "name": "包装豆类",
+      "level": "细类",
+      "parentCode": "200601",
+      "parentName": "干货休闲食品",
+      "sourceRow": 140,
+      "erpRow": 138
+    },
+    {
+      "code": "20060104",
+      "name": "包装干果",
+      "level": "细类",
+      "parentCode": "200601",
+      "parentName": "干货休闲食品",
+      "sourceRow": 141,
+      "erpRow": 139
+    },
+    {
+      "code": "200602",
+      "name": "卤制休闲食品",
+      "level": "小类",
+      "parentCode": "2006",
+      "parentName": "休闲食品",
+      "sourceRow": 142,
+      "erpRow": 140
+    },
+    {
+      "code": "20060201",
+      "name": "卤蛋制品",
+      "level": "细类",
+      "parentCode": "200602",
+      "parentName": "卤制休闲食品",
+      "sourceRow": 143,
+      "erpRow": 141
+    },
+    {
+      "code": "20060202",
+      "name": "休闲豆制品",
+      "level": "细类",
+      "parentCode": "200602",
+      "parentName": "卤制休闲食品",
+      "sourceRow": 144,
+      "erpRow": 142
+    },
+    {
+      "code": "20060203",
+      "name": "休闲肉制品",
+      "level": "细类",
+      "parentCode": "200602",
+      "parentName": "卤制休闲食品",
+      "sourceRow": 145,
+      "erpRow": 143
+    },
+    {
+      "code": "200603",
+      "name": "果冻",
+      "level": "小类",
+      "parentCode": "2006",
+      "parentName": "休闲食品",
+      "sourceRow": 146,
+      "erpRow": 144
+    },
+    {
+      "code": "20060301",
+      "name": "袋装果冻",
+      "level": "细类",
+      "parentCode": "200603",
+      "parentName": "果冻",
+      "sourceRow": 147,
+      "erpRow": 145
+    },
+    {
+      "code": "20060302",
+      "name": "果冻爽",
+      "level": "细类",
+      "parentCode": "200603",
+      "parentName": "果冻",
+      "sourceRow": 148,
+      "erpRow": 146
+    },
+    {
+      "code": "20060303",
+      "name": "布丁",
+      "level": "细类",
+      "parentCode": "200603",
+      "parentName": "果冻",
+      "sourceRow": 149,
+      "erpRow": 147
+    },
+    {
+      "code": "20060304",
+      "name": "水果果冻",
+      "level": "细类",
+      "parentCode": "200603",
+      "parentName": "果冻",
+      "sourceRow": 150,
+      "erpRow": 148
+    },
+    {
+      "code": "200604",
+      "name": "蜜饯",
+      "level": "小类",
+      "parentCode": "2006",
+      "parentName": "休闲食品",
+      "sourceRow": 151,
+      "erpRow": 149
+    },
+    {
+      "code": "20060401",
+      "name": "包装梅类",
+      "level": "细类",
+      "parentCode": "200604",
+      "parentName": "蜜饯",
+      "sourceRow": 152,
+      "erpRow": 150
+    },
+    {
+      "code": "20060402",
+      "name": "包装山楂类",
+      "level": "细类",
+      "parentCode": "200604",
+      "parentName": "蜜饯",
+      "sourceRow": 153,
+      "erpRow": 151
+    },
+    {
+      "code": "20060403",
+      "name": "包装果脯果片",
+      "level": "细类",
+      "parentCode": "200604",
+      "parentName": "蜜饯",
+      "sourceRow": 154,
+      "erpRow": 152
+    },
+    {
+      "code": "20060404",
+      "name": "包装葡萄干",
+      "level": "细类",
+      "parentCode": "200604",
+      "parentName": "蜜饯",
+      "sourceRow": 155,
+      "erpRow": 153
+    },
+    {
+      "code": "20060405",
+      "name": "包装枣类",
+      "level": "细类",
+      "parentCode": "200604",
+      "parentName": "蜜饯",
+      "sourceRow": 156,
+      "erpRow": 154
+    },
+    {
+      "code": "200605",
+      "name": "膨化食品",
+      "level": "小类",
+      "parentCode": "2006",
+      "parentName": "休闲食品",
+      "sourceRow": 157,
+      "erpRow": 155
+    },
+    {
+      "code": "20060501",
+      "name": "薯条薯片",
+      "level": "细类",
+      "parentCode": "200605",
+      "parentName": "膨化食品",
+      "sourceRow": 158,
+      "erpRow": 156
+    },
+    {
+      "code": "20060502",
+      "name": "锅巴麻花馍片米饼",
+      "level": "细类",
+      "parentCode": "200605",
+      "parentName": "膨化食品",
+      "sourceRow": 159,
+      "erpRow": 157
+    },
+    {
+      "code": "20060503",
+      "name": "虾条虾片",
+      "level": "细类",
+      "parentCode": "200605",
+      "parentName": "膨化食品",
+      "sourceRow": 160,
+      "erpRow": 158
+    },
+    {
+      "code": "20060504",
+      "name": "海苔",
+      "level": "细类",
+      "parentCode": "200605",
+      "parentName": "膨化食品",
+      "sourceRow": 161,
+      "erpRow": 159
+    },
+    {
+      "code": "200606",
+      "name": "饼干面包休闲",
+      "level": "小类",
+      "parentCode": "2006",
+      "parentName": "休闲食品",
+      "sourceRow": 162,
+      "erpRow": 160
+    },
+    {
+      "code": "20060601",
+      "name": "袋/盒装饼干",
+      "level": "细类",
+      "parentCode": "200606",
+      "parentName": "饼干面包休闲",
+      "sourceRow": 163,
+      "erpRow": 161
+    },
+    {
+      "code": "20060602",
+      "name": "沙琪玛/蛋黄派/软面包",
+      "level": "细类",
+      "parentCode": "200606",
+      "parentName": "饼干面包休闲",
+      "sourceRow": 164,
+      "erpRow": 162
+    },
+    {
+      "code": "20060603",
+      "name": "威化/曲奇",
+      "level": "细类",
+      "parentCode": "200606",
+      "parentName": "饼干面包休闲",
+      "sourceRow": 165,
+      "erpRow": 163
+    },
+    {
+      "code": "200607",
+      "name": "营养保健礼盒",
+      "level": "小类",
+      "parentCode": "2006",
+      "parentName": "休闲食品",
+      "sourceRow": 166,
+      "erpRow": 164
+    },
+    {
+      "code": "20060701",
+      "name": "饮料礼盒",
+      "level": "细类",
+      "parentCode": "200607",
+      "parentName": "营养保健礼盒",
+      "sourceRow": 167,
+      "erpRow": 165
+    },
+    {
+      "code": "20060702",
+      "name": "饼干礼盒",
+      "level": "细类",
+      "parentCode": "200607",
+      "parentName": "营养保健礼盒",
+      "sourceRow": 168,
+      "erpRow": 166
+    },
+    {
+      "code": "20060703",
+      "name": "保健品礼盒",
+      "level": "细类",
+      "parentCode": "200607",
+      "parentName": "营养保健礼盒",
+      "sourceRow": 169,
+      "erpRow": 167
+    },
+    {
+      "code": "20060704",
+      "name": "干果礼盒",
+      "level": "细类",
+      "parentCode": "200607",
+      "parentName": "营养保健礼盒",
+      "sourceRow": 170,
+      "erpRow": 168
+    },
+    {
+      "code": "200608",
+      "name": "散称小食品",
+      "level": "小类",
+      "parentCode": "2006",
+      "parentName": "休闲食品",
+      "sourceRow": 171,
+      "erpRow": 169
+    },
+    {
+      "code": "20060801",
+      "name": "散称糖果",
+      "level": "细类",
+      "parentCode": "200608",
+      "parentName": "散称小食品",
+      "sourceRow": 172,
+      "erpRow": 170
+    },
+    {
+      "code": "20060802",
+      "name": "散称饼干糕点",
+      "level": "细类",
+      "parentCode": "200608",
+      "parentName": "散称小食品",
+      "sourceRow": 173,
+      "erpRow": 171
+    },
+    {
+      "code": "20060803",
+      "name": "散休闲肉食品",
+      "level": "细类",
+      "parentCode": "200608",
+      "parentName": "散称小食品",
+      "sourceRow": 174,
+      "erpRow": 172
+    },
+    {
+      "code": "20060804",
+      "name": "散休闲素食品",
+      "level": "细类",
+      "parentCode": "200608",
+      "parentName": "散称小食品",
+      "sourceRow": 175,
+      "erpRow": 173
+    },
+    {
+      "code": "20060805",
+      "name": "散干果蜜饯",
+      "level": "细类",
+      "parentCode": "200608",
+      "parentName": "散称小食品",
+      "sourceRow": 176,
+      "erpRow": 174
+    },
+    {
+      "code": "20060806",
+      "name": "散枣类干货",
+      "level": "细类",
+      "parentCode": "200608",
+      "parentName": "散称小食品",
+      "sourceRow": 177,
+      "erpRow": 175
+    },
+    {
+      "code": "20060807",
+      "name": "散装茶叶",
+      "level": "细类",
+      "parentCode": "200608",
+      "parentName": "散称小食品",
+      "sourceRow": 178,
+      "erpRow": 176
+    },
+    {
+      "code": "20060808",
+      "name": "散瓜子",
+      "level": "细类",
+      "parentCode": "200608",
+      "parentName": "散称小食品",
+      "sourceRow": 179,
+      "erpRow": 177
+    },
+    {
+      "code": "20060809",
+      "name": "散称米酿",
+      "level": "细类",
+      "parentCode": "200608",
+      "parentName": "散称小食品",
+      "sourceRow": 180,
+      "erpRow": 178
+    },
+    {
+      "code": "200609",
+      "name": "节日性食品",
+      "level": "小类",
+      "parentCode": "2006",
+      "parentName": "休闲食品",
+      "sourceRow": 181,
+      "erpRow": 179
+    },
+    {
+      "code": "20060901",
+      "name": "散称粽子",
+      "level": "细类",
+      "parentCode": "200609",
+      "parentName": "节日性食品",
+      "sourceRow": 182,
+      "erpRow": 180
+    },
+    {
+      "code": "20060902",
+      "name": "袋装粽子粽叶",
+      "level": "细类",
+      "parentCode": "200609",
+      "parentName": "节日性食品",
+      "sourceRow": 183,
+      "erpRow": 181
+    },
+    {
+      "code": "20060903",
+      "name": "粽子礼盒",
+      "level": "细类",
+      "parentCode": "200609",
+      "parentName": "节日性食品",
+      "sourceRow": 184,
+      "erpRow": 182
+    },
+    {
+      "code": "20060904",
+      "name": "散称月饼",
+      "level": "细类",
+      "parentCode": "200609",
+      "parentName": "节日性食品",
+      "sourceRow": 185,
+      "erpRow": 183
+    },
+    {
+      "code": "20060905",
+      "name": "包装月饼",
+      "level": "细类",
+      "parentCode": "200609",
+      "parentName": "节日性食品",
+      "sourceRow": 186,
+      "erpRow": 184
+    },
+    {
+      "code": "20060906",
+      "name": "月饼礼盒",
+      "level": "细类",
+      "parentCode": "200609",
+      "parentName": "节日性食品",
+      "sourceRow": 187,
+      "erpRow": 185
+    },
+    {
+      "code": "2007",
+      "name": "酒类",
+      "level": "中类",
+      "parentCode": "20",
+      "parentName": "食品类",
+      "sourceRow": 188,
+      "erpRow": 186
+    },
+    {
+      "code": "200701",
+      "name": "白酒类",
+      "level": "小类",
+      "parentCode": "2007",
+      "parentName": "酒类",
+      "sourceRow": 189,
+      "erpRow": 187
+    },
+    {
+      "code": "20070101",
+      "name": "礼盒装白酒",
+      "level": "细类",
+      "parentCode": "200701",
+      "parentName": "白酒类",
+      "sourceRow": 190,
+      "erpRow": 188
+    },
+    {
+      "code": "20070102",
+      "name": "盒装白酒",
+      "level": "细类",
+      "parentCode": "200701",
+      "parentName": "白酒类",
+      "sourceRow": 191,
+      "erpRow": 189
+    },
+    {
+      "code": "20070103",
+      "name": "简装白酒",
+      "level": "细类",
+      "parentCode": "200701",
+      "parentName": "白酒类",
+      "sourceRow": 192,
+      "erpRow": 190
+    },
+    {
+      "code": "200702",
+      "name": "葡萄酒类",
+      "level": "小类",
+      "parentCode": "2007",
+      "parentName": "酒类",
+      "sourceRow": 193,
+      "erpRow": 191
+    },
+    {
+      "code": "20070201",
+      "name": "瓶装葡萄酒",
+      "level": "细类",
+      "parentCode": "200702",
+      "parentName": "葡萄酒类",
+      "sourceRow": 194,
+      "erpRow": 192
+    },
+    {
+      "code": "20070202",
+      "name": "礼盒装葡萄酒",
+      "level": "细类",
+      "parentCode": "200702",
+      "parentName": "葡萄酒类",
+      "sourceRow": 195,
+      "erpRow": 193
+    },
+    {
+      "code": "200703",
+      "name": "啤酒类",
+      "level": "小类",
+      "parentCode": "2007",
+      "parentName": "酒类",
+      "sourceRow": 196,
+      "erpRow": 194
+    },
+    {
+      "code": "20070301",
+      "name": "听装啤酒",
+      "level": "细类",
+      "parentCode": "200703",
+      "parentName": "啤酒类",
+      "sourceRow": 197,
+      "erpRow": 195
+    },
+    {
+      "code": "20070302",
+      "name": "瓶装啤酒",
+      "level": "细类",
+      "parentCode": "200703",
+      "parentName": "啤酒类",
+      "sourceRow": 198,
+      "erpRow": 196
+    },
+    {
+      "code": "20070303",
+      "name": "桶装啤酒",
+      "level": "细类",
+      "parentCode": "200703",
+      "parentName": "啤酒类",
+      "sourceRow": 199,
+      "erpRow": 197
+    },
+    {
+      "code": "200704",
+      "name": "保健酒类",
+      "level": "小类",
+      "parentCode": "2007",
+      "parentName": "酒类",
+      "sourceRow": 200,
+      "erpRow": 198
+    },
+    {
+      "code": "20070401",
+      "name": "瓶装保健酒",
+      "level": "细类",
+      "parentCode": "200704",
+      "parentName": "保健酒类",
+      "sourceRow": 201,
+      "erpRow": 199
+    },
+    {
+      "code": "20070402",
+      "name": "礼盒保健酒",
+      "level": "细类",
+      "parentCode": "200704",
+      "parentName": "保健酒类",
+      "sourceRow": 202,
+      "erpRow": 200
+    },
+    {
+      "code": "20070403",
+      "name": "特味酒饮料",
+      "level": "细类",
+      "parentCode": "200704",
+      "parentName": "保健酒类",
+      "sourceRow": 203,
+      "erpRow": 201
+    },
+    {
+      "code": "20070404",
+      "name": "黄酒",
+      "level": "细类",
+      "parentCode": "200704",
+      "parentName": "保健酒类",
+      "sourceRow": 204,
+      "erpRow": 202
+    },
+    {
+      "code": "20070405",
+      "name": "洋酒",
+      "level": "细类",
+      "parentCode": "200704",
+      "parentName": "保健酒类",
+      "sourceRow": 205,
+      "erpRow": 203
+    },
+    {
+      "code": "2008",
+      "name": "糖果巧克力",
+      "level": "中类",
+      "parentCode": "20",
+      "parentName": "食品类",
+      "sourceRow": 206,
+      "erpRow": 204
+    },
+    {
+      "code": "200801",
+      "name": "巧克力",
+      "level": "小类",
+      "parentCode": "2008",
+      "parentName": "糖果巧克力",
+      "sourceRow": 207,
+      "erpRow": 205
+    },
+    {
+      "code": "20080101",
+      "name": "条/瓶装巧克力/士力架",
+      "level": "细类",
+      "parentCode": "200801",
+      "parentName": "巧克力",
+      "sourceRow": 208,
+      "erpRow": 206
+    },
+    {
+      "code": "20080102",
+      "name": "盒装巧克力",
+      "level": "细类",
+      "parentCode": "200801",
+      "parentName": "巧克力",
+      "sourceRow": 209,
+      "erpRow": 207
+    },
+    {
+      "code": "20080103",
+      "name": "袋巧克力麦丽素麦咪",
+      "level": "细类",
+      "parentCode": "200801",
+      "parentName": "巧克力",
+      "sourceRow": 210,
+      "erpRow": 208
+    },
+    {
+      "code": "200802",
+      "name": "糖果",
+      "level": "小类",
+      "parentCode": "2008",
+      "parentName": "糖果巧克力",
+      "sourceRow": 211,
+      "erpRow": 209
+    },
+    {
+      "code": "20080201",
+      "name": "泡泡糖/棉花糖",
+      "level": "细类",
+      "parentCode": "200802",
+      "parentName": "糖果",
+      "sourceRow": 212,
+      "erpRow": 210
+    },
+    {
+      "code": "20080202",
+      "name": "口香糖",
+      "level": "细类",
+      "parentCode": "200802",
+      "parentName": "糖果",
+      "sourceRow": 213,
+      "erpRow": 211
+    },
+    {
+      "code": "20080203",
+      "name": "条糖/彩虹糖",
+      "level": "细类",
+      "parentCode": "200802",
+      "parentName": "糖果",
+      "sourceRow": 214,
+      "erpRow": 212
+    },
+    {
+      "code": "20080204",
+      "name": "袋糖",
+      "level": "细类",
+      "parentCode": "200802",
+      "parentName": "糖果",
+      "sourceRow": 215,
+      "erpRow": 213
+    },
+    {
+      "code": "20080205",
+      "name": "玩具糖",
+      "level": "细类",
+      "parentCode": "200802",
+      "parentName": "糖果",
+      "sourceRow": 216,
+      "erpRow": 214
+    },
+    {
+      "code": "20080206",
+      "name": "棒棒糖",
+      "level": "细类",
+      "parentCode": "200802",
+      "parentName": "糖果",
+      "sourceRow": 217,
+      "erpRow": 215
+    },
+    {
+      "code": "20080207",
+      "name": "奶片",
+      "level": "细类",
+      "parentCode": "200802",
+      "parentName": "糖果",
+      "sourceRow": 218,
+      "erpRow": 216
+    },
+    {
+      "code": "2009",
+      "name": "营养冲调类",
+      "level": "中类",
+      "parentCode": "20",
+      "parentName": "食品类",
+      "sourceRow": 219,
+      "erpRow": 217
+    },
+    {
+      "code": "200901",
+      "name": "冲调糖",
+      "level": "小类",
+      "parentCode": "2009",
+      "parentName": "营养冲调类",
+      "sourceRow": 220,
+      "erpRow": 218
+    },
+    {
+      "code": "20090101",
+      "name": "包装冰糖",
+      "level": "细类",
+      "parentCode": "200901",
+      "parentName": "冲调糖",
+      "sourceRow": 221,
+      "erpRow": 219
+    },
+    {
+      "code": "20090102",
+      "name": "包装白糖",
+      "level": "细类",
+      "parentCode": "200901",
+      "parentName": "冲调糖",
+      "sourceRow": 222,
+      "erpRow": 220
+    },
+    {
+      "code": "20090103",
+      "name": "包装红糖",
+      "level": "细类",
+      "parentCode": "200901",
+      "parentName": "冲调糖",
+      "sourceRow": 223,
+      "erpRow": 221
+    },
+    {
+      "code": "20090104",
+      "name": "蜂蜜",
+      "level": "细类",
+      "parentCode": "200901",
+      "parentName": "冲调糖",
+      "sourceRow": 224,
+      "erpRow": 222
+    },
+    {
+      "code": "200902",
+      "name": "冲调茶咖啡",
+      "level": "小类",
+      "parentCode": "2009",
+      "parentName": "营养冲调类",
+      "sourceRow": 225,
+      "erpRow": 223
+    },
+    {
+      "code": "20090201",
+      "name": "茶叶",
+      "level": "细类",
+      "parentCode": "200902",
+      "parentName": "冲调茶咖啡",
+      "sourceRow": 226,
+      "erpRow": 224
+    },
+    {
+      "code": "20090202",
+      "name": "咖啡冲调",
+      "level": "细类",
+      "parentCode": "200902",
+      "parentName": "冲调茶咖啡",
+      "sourceRow": 227,
+      "erpRow": 225
+    },
+    {
+      "code": "20090203",
+      "name": "奶茶",
+      "level": "细类",
+      "parentCode": "200902",
+      "parentName": "冲调茶咖啡",
+      "sourceRow": 228,
+      "erpRow": 226
+    },
+    {
+      "code": "200903",
+      "name": "冲调粉类",
+      "level": "小类",
+      "parentCode": "2009",
+      "parentName": "营养冲调类",
+      "sourceRow": 229,
+      "erpRow": 227
+    },
+    {
+      "code": "20090301",
+      "name": "婴幼儿冲饮",
+      "level": "细类",
+      "parentCode": "200903",
+      "parentName": "冲调粉类",
+      "sourceRow": 230,
+      "erpRow": 228
+    },
+    {
+      "code": "20090302",
+      "name": "燕麦餐糊",
+      "level": "细类",
+      "parentCode": "200903",
+      "parentName": "冲调粉类",
+      "sourceRow": 231,
+      "erpRow": 229
+    },
+    {
+      "code": "20090303",
+      "name": "固体饮料",
+      "level": "细类",
+      "parentCode": "200903",
+      "parentName": "冲调粉类",
+      "sourceRow": 232,
+      "erpRow": 230
+    },
+    {
+      "code": "20090304",
+      "name": "粗粮冲饮",
+      "level": "细类",
+      "parentCode": "200903",
+      "parentName": "冲调粉类",
+      "sourceRow": 233,
+      "erpRow": 231
+    },
+    {
+      "code": "2010",
+      "name": "副食类",
+      "level": "中类",
+      "parentCode": "20",
+      "parentName": "食品类",
+      "sourceRow": 234,
+      "erpRow": 232
+    },
+    {
+      "code": "201001",
+      "name": "调味品",
+      "level": "小类",
+      "parentCode": "2010",
+      "parentName": "副食类",
+      "sourceRow": 235,
+      "erpRow": 233
+    },
+    {
+      "code": "20100101",
+      "name": "酱油",
+      "level": "细类",
+      "parentCode": "201001",
+      "parentName": "调味品",
+      "sourceRow": 236,
+      "erpRow": 234
+    },
+    {
+      "code": "20100102",
+      "name": "醋",
+      "level": "细类",
+      "parentCode": "201001",
+      "parentName": "调味品",
+      "sourceRow": 237,
+      "erpRow": 235
+    },
+    {
+      "code": "20100103",
+      "name": "调味粉/精",
+      "level": "细类",
+      "parentCode": "201001",
+      "parentName": "调味品",
+      "sourceRow": 238,
+      "erpRow": 236
+    },
+    {
+      "code": "20100104",
+      "name": "调味汁",
+      "level": "细类",
+      "parentCode": "201001",
+      "parentName": "调味品",
+      "sourceRow": 239,
+      "erpRow": 237
+    },
+    {
+      "code": "20100105",
+      "name": "调味酱",
+      "level": "细类",
+      "parentCode": "201001",
+      "parentName": "调味品",
+      "sourceRow": 240,
+      "erpRow": 238
+    },
+    {
+      "code": "20100106",
+      "name": "火锅料",
+      "level": "细类",
+      "parentCode": "201001",
+      "parentName": "调味品",
+      "sourceRow": 241,
+      "erpRow": 239
+    },
+    {
+      "code": "20100107",
+      "name": "成品袋调料",
+      "level": "细类",
+      "parentCode": "201001",
+      "parentName": "调味品",
+      "sourceRow": 242,
+      "erpRow": 240
+    },
+    {
+      "code": "20100108",
+      "name": "盐类",
+      "level": "细类",
+      "parentCode": "201001",
+      "parentName": "调味品",
+      "sourceRow": 243,
+      "erpRow": 241
+    },
+    {
+      "code": "201002",
+      "name": "酱菜",
+      "level": "小类",
+      "parentCode": "2010",
+      "parentName": "副食类",
+      "sourceRow": 244,
+      "erpRow": 242
+    },
+    {
+      "code": "20100201",
+      "name": "袋装酱菜",
+      "level": "细类",
+      "parentCode": "201002",
+      "parentName": "酱菜",
+      "sourceRow": 245,
+      "erpRow": 243
+    },
+    {
+      "code": "20100202",
+      "name": "瓶装酱菜",
+      "level": "细类",
+      "parentCode": "201002",
+      "parentName": "酱菜",
+      "sourceRow": 246,
+      "erpRow": 244
+    },
+    {
+      "code": "20100203",
+      "name": "腐乳",
+      "level": "细类",
+      "parentCode": "201002",
+      "parentName": "酱菜",
+      "sourceRow": 247,
+      "erpRow": 245
+    },
+    {
+      "code": "201003",
+      "name": "罐头",
+      "level": "小类",
+      "parentCode": "2010",
+      "parentName": "副食类",
+      "sourceRow": 248,
+      "erpRow": 246
+    },
+    {
+      "code": "20100301",
+      "name": "鱼罐头",
+      "level": "细类",
+      "parentCode": "201003",
+      "parentName": "罐头",
+      "sourceRow": 249,
+      "erpRow": 247
+    },
+    {
+      "code": "20100302",
+      "name": "肉罐头",
+      "level": "细类",
+      "parentCode": "201003",
+      "parentName": "罐头",
+      "sourceRow": 250,
+      "erpRow": 248
+    },
+    {
+      "code": "20100303",
+      "name": "水果罐头",
+      "level": "细类",
+      "parentCode": "201003",
+      "parentName": "罐头",
+      "sourceRow": 251,
+      "erpRow": 249
+    },
+    {
+      "code": "20100304",
+      "name": "米酒",
+      "level": "细类",
+      "parentCode": "201003",
+      "parentName": "罐头",
+      "sourceRow": 252,
+      "erpRow": 250
+    },
+    {
+      "code": "20100305",
+      "name": "果酱沙拉酱",
+      "level": "细类",
+      "parentCode": "201003",
+      "parentName": "罐头",
+      "sourceRow": 253,
+      "erpRow": 251
+    },
+    {
+      "code": "201004",
+      "name": "方便食品",
+      "level": "小类",
+      "parentCode": "2010",
+      "parentName": "副食类",
+      "sourceRow": 254,
+      "erpRow": 252
+    },
+    {
+      "code": "20100401",
+      "name": "方便面/粉丝",
+      "level": "细类",
+      "parentCode": "201004",
+      "parentName": "方便食品",
+      "sourceRow": 255,
+      "erpRow": 253
+    },
+    {
+      "code": "20100402",
+      "name": "方便粥/八宝粥",
+      "level": "细类",
+      "parentCode": "201004",
+      "parentName": "方便食品",
+      "sourceRow": 256,
+      "erpRow": 254
+    },
+    {
+      "code": "20100403",
+      "name": "方便饭",
+      "level": "细类",
+      "parentCode": "201004",
+      "parentName": "方便食品",
+      "sourceRow": 257,
+      "erpRow": 255
+    },
+    {
+      "code": "20100404",
+      "name": "年糕",
+      "level": "细类",
+      "parentCode": "201004",
+      "parentName": "方便食品",
+      "sourceRow": 258,
+      "erpRow": 256
+    },
+    {
+      "code": "20100405",
+      "name": "挂面",
+      "level": "细类",
+      "parentCode": "201004",
+      "parentName": "方便食品",
+      "sourceRow": 259,
+      "erpRow": 257
+    },
+    {
+      "code": "30",
+      "name": "非食类",
+      "level": "大类",
+      "parentCode": "00",
+      "parentName": "总类",
+      "sourceRow": 260,
+      "erpRow": 258
+    },
+    {
+      "code": "3001",
+      "name": "文体办公书类",
+      "level": "中类",
+      "parentCode": "30",
+      "parentName": "非食类",
+      "sourceRow": 261,
+      "erpRow": 259
+    },
+    {
+      "code": "300101",
+      "name": "文化用品",
+      "level": "小类",
+      "parentCode": "3001",
+      "parentName": "文体办公书类",
+      "sourceRow": 262,
+      "erpRow": 260
+    },
+    {
+      "code": "30010101",
+      "name": "书写工具",
+      "level": "细类",
+      "parentCode": "300101",
+      "parentName": "文化用品",
+      "sourceRow": 263,
+      "erpRow": 261
+    },
+    {
+      "code": "30010102",
+      "name": "本册类",
+      "level": "细类",
+      "parentCode": "300101",
+      "parentName": "文化用品",
+      "sourceRow": 264,
+      "erpRow": 262
+    },
+    {
+      "code": "30010103",
+      "name": "文件管理类",
+      "level": "细类",
+      "parentCode": "300101",
+      "parentName": "文化用品",
+      "sourceRow": 265,
+      "erpRow": 263
+    },
+    {
+      "code": "30010104",
+      "name": "纸质用品",
+      "level": "细类",
+      "parentCode": "300101",
+      "parentName": "文化用品",
+      "sourceRow": 266,
+      "erpRow": 264
+    },
+    {
+      "code": "30010105",
+      "name": "手机配件",
+      "level": "细类",
+      "parentCode": "300101",
+      "parentName": "文化用品",
+      "sourceRow": 267,
+      "erpRow": 265
+    },
+    {
+      "code": "30010106",
+      "name": "精品礼品类",
+      "level": "细类",
+      "parentCode": "300101",
+      "parentName": "文化用品",
+      "sourceRow": 268,
+      "erpRow": 266
+    },
+    {
+      "code": "30010107",
+      "name": "婚庆用品",
+      "level": "细类",
+      "parentCode": "300101",
+      "parentName": "文化用品",
+      "sourceRow": 269,
+      "erpRow": 267
+    },
+    {
+      "code": "30010108",
+      "name": "证件证书标志类",
+      "level": "细类",
+      "parentCode": "300101",
+      "parentName": "文化用品",
+      "sourceRow": 270,
+      "erpRow": 268
+    },
+    {
+      "code": "30010109",
+      "name": "图书类",
+      "level": "细类",
+      "parentCode": "300101",
+      "parentName": "文化用品",
+      "sourceRow": 271,
+      "erpRow": 269
+    },
+    {
+      "code": "300102",
+      "name": "办公用品",
+      "level": "小类",
+      "parentCode": "3001",
+      "parentName": "文体办公书类",
+      "sourceRow": 272,
+      "erpRow": 270
+    },
+    {
+      "code": "30010201",
+      "name": "办公设备",
+      "level": "细类",
+      "parentCode": "300102",
+      "parentName": "办公用品",
+      "sourceRow": 273,
+      "erpRow": 271
+    },
+    {
+      "code": "30010202",
+      "name": "桌上用具",
+      "level": "细类",
+      "parentCode": "300102",
+      "parentName": "办公用品",
+      "sourceRow": 274,
+      "erpRow": 272
+    },
+    {
+      "code": "30010203",
+      "name": "粘贴用品",
+      "level": "细类",
+      "parentCode": "300102",
+      "parentName": "办公用品",
+      "sourceRow": 275,
+      "erpRow": 273
+    },
+    {
+      "code": "30010204",
+      "name": "电脑耗材",
+      "level": "细类",
+      "parentCode": "300102",
+      "parentName": "办公用品",
+      "sourceRow": 276,
+      "erpRow": 274
+    },
+    {
+      "code": "30010205",
+      "name": "店内耗材",
+      "level": "细类",
+      "parentCode": "300102",
+      "parentName": "办公用品",
+      "sourceRow": 277,
+      "erpRow": 275
+    },
+    {
+      "code": "300103",
+      "name": "体育用品",
+      "level": "小类",
+      "parentCode": "3001",
+      "parentName": "文体办公书类",
+      "sourceRow": 278,
+      "erpRow": 276
+    },
+    {
+      "code": "30010301",
+      "name": "健身康体器材",
+      "level": "细类",
+      "parentCode": "300103",
+      "parentName": "体育用品",
+      "sourceRow": 279,
+      "erpRow": 277
+    },
+    {
+      "code": "30010302",
+      "name": "竞技棋类/配件",
+      "level": "细类",
+      "parentCode": "300103",
+      "parentName": "体育用品",
+      "sourceRow": 280,
+      "erpRow": 278
+    },
+    {
+      "code": "30010303",
+      "name": "球类体育器材",
+      "level": "细类",
+      "parentCode": "300103",
+      "parentName": "体育用品",
+      "sourceRow": 281,
+      "erpRow": 279
+    },
+    {
+      "code": "30010304",
+      "name": "运动护具服饰",
+      "level": "细类",
+      "parentCode": "300103",
+      "parentName": "体育用品",
+      "sourceRow": 282,
+      "erpRow": 280
+    },
+    {
+      "code": "3002",
+      "name": "洗护类",
+      "level": "中类",
+      "parentCode": "30",
+      "parentName": "非食类",
+      "sourceRow": 283,
+      "erpRow": 281
+    },
+    {
+      "code": "300201",
+      "name": "个人护理",
+      "level": "小类",
+      "parentCode": "3002",
+      "parentName": "洗护类",
+      "sourceRow": 284,
+      "erpRow": 282
+    },
+    {
+      "code": "30020101",
+      "name": "牙膏",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 285,
+      "erpRow": 283
+    },
+    {
+      "code": "30020102",
+      "name": "面霜类",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 286,
+      "erpRow": 284
+    },
+    {
+      "code": "30020103",
+      "name": "化妆工具类",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 287,
+      "erpRow": 285
+    },
+    {
+      "code": "30020104",
+      "name": "沐浴用品",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 288,
+      "erpRow": 286
+    },
+    {
+      "code": "30020105",
+      "name": "护发类",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 289,
+      "erpRow": 287
+    },
+    {
+      "code": "30020106",
+      "name": "面膜类",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 290,
+      "erpRow": 288
+    },
+    {
+      "code": "30020107",
+      "name": "洁面乳",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 291,
+      "erpRow": 289
+    },
+    {
+      "code": "30020108",
+      "name": "唇膏",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 292,
+      "erpRow": 290
+    },
+    {
+      "code": "30020109",
+      "name": "爽身粉",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 293,
+      "erpRow": 291
+    },
+    {
+      "code": "30020110",
+      "name": "花露水",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 294,
+      "erpRow": 292
+    },
+    {
+      "code": "30020111",
+      "name": "护手霜",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 295,
+      "erpRow": 293
+    },
+    {
+      "code": "30020112",
+      "name": "牙刷",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 296,
+      "erpRow": 294
+    },
+    {
+      "code": "30020113",
+      "name": "漱口水",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 297,
+      "erpRow": 295
+    },
+    {
+      "code": "30020114",
+      "name": "洗发用品",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 298,
+      "erpRow": 296
+    },
+    {
+      "code": "30020115",
+      "name": "洗手液",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 299,
+      "erpRow": 297
+    },
+    {
+      "code": "30020116",
+      "name": "香皂",
+      "level": "细类",
+      "parentCode": "300201",
+      "parentName": "个人护理",
+      "sourceRow": 300,
+      "erpRow": 298
+    },
+    {
+      "code": "300202",
+      "name": "纸品类",
+      "level": "小类",
+      "parentCode": "3002",
+      "parentName": "洗护类",
+      "sourceRow": 301,
+      "erpRow": 299
+    },
+    {
+      "code": "30020201",
+      "name": "卷纸",
+      "level": "细类",
+      "parentCode": "300202",
+      "parentName": "纸品类",
+      "sourceRow": 302,
+      "erpRow": 300
+    },
+    {
+      "code": "30020202",
+      "name": "手帕纸/抽纸",
+      "level": "细类",
+      "parentCode": "300202",
+      "parentName": "纸品类",
+      "sourceRow": 303,
+      "erpRow": 301
+    },
+    {
+      "code": "30020203",
+      "name": "湿纸巾",
+      "level": "细类",
+      "parentCode": "300202",
+      "parentName": "纸品类",
+      "sourceRow": 304,
+      "erpRow": 302
+    },
+    {
+      "code": "30020204",
+      "name": "纸尿裤",
+      "level": "细类",
+      "parentCode": "300202",
+      "parentName": "纸品类",
+      "sourceRow": 305,
+      "erpRow": 303
+    },
+    {
+      "code": "30020205",
+      "name": "卫生巾",
+      "level": "细类",
+      "parentCode": "300202",
+      "parentName": "纸品类",
+      "sourceRow": 306,
+      "erpRow": 304
+    },
+    {
+      "code": "30020206",
+      "name": "护垫",
+      "level": "细类",
+      "parentCode": "300202",
+      "parentName": "纸品类",
+      "sourceRow": 307,
+      "erpRow": 305
+    },
+    {
+      "code": "30020207",
+      "name": "成人纸尿裤",
+      "level": "细类",
+      "parentCode": "300202",
+      "parentName": "纸品类",
+      "sourceRow": 308,
+      "erpRow": 306
+    },
+    {
+      "code": "300203",
+      "name": "家居清洁",
+      "level": "小类",
+      "parentCode": "3002",
+      "parentName": "洗护类",
+      "sourceRow": 309,
+      "erpRow": 307
+    },
+    {
+      "code": "30020301",
+      "name": "洗衣液",
+      "level": "细类",
+      "parentCode": "300203",
+      "parentName": "家居清洁",
+      "sourceRow": 310,
+      "erpRow": 308
+    },
+    {
+      "code": "30020302",
+      "name": "油污净",
+      "level": "细类",
+      "parentCode": "300203",
+      "parentName": "家居清洁",
+      "sourceRow": 311,
+      "erpRow": 309
+    },
+    {
+      "code": "30020303",
+      "name": "洗洁精",
+      "level": "细类",
+      "parentCode": "300203",
+      "parentName": "家居清洁",
+      "sourceRow": 312,
+      "erpRow": 310
+    },
+    {
+      "code": "30020304",
+      "name": "杀虫类",
+      "level": "细类",
+      "parentCode": "300203",
+      "parentName": "家居清洁",
+      "sourceRow": 313,
+      "erpRow": 311
+    },
+    {
+      "code": "30020305",
+      "name": "洗衣粉",
+      "level": "细类",
+      "parentCode": "300203",
+      "parentName": "家居清洁",
+      "sourceRow": 314,
+      "erpRow": 312
+    },
+    {
+      "code": "30020306",
+      "name": "洗衣皂",
+      "level": "细类",
+      "parentCode": "300203",
+      "parentName": "家居清洁",
+      "sourceRow": 315,
+      "erpRow": 313
+    },
+    {
+      "code": "30020307",
+      "name": "护理剂",
+      "level": "细类",
+      "parentCode": "300203",
+      "parentName": "家居清洁",
+      "sourceRow": 316,
+      "erpRow": 314
+    },
+    {
+      "code": "30020308",
+      "name": "空气清新剂",
+      "level": "细类",
+      "parentCode": "300203",
+      "parentName": "家居清洁",
+      "sourceRow": 317,
+      "erpRow": 315
+    },
+    {
+      "code": "30020309",
+      "name": "洁厕用品",
+      "level": "细类",
+      "parentCode": "300203",
+      "parentName": "家居清洁",
+      "sourceRow": 318,
+      "erpRow": 316
+    },
+    {
+      "code": "30020310",
+      "name": "皮革养护",
+      "level": "细类",
+      "parentCode": "300203",
+      "parentName": "家居清洁",
+      "sourceRow": 319,
+      "erpRow": 317
+    },
+    {
+      "code": "300204",
+      "name": "急救品",
+      "level": "小类",
+      "parentCode": "3002",
+      "parentName": "洗护类",
+      "sourceRow": 320,
+      "erpRow": 318
+    },
+    {
+      "code": "30020401",
+      "name": "计生用品",
+      "level": "细类",
+      "parentCode": "300204",
+      "parentName": "急救品",
+      "sourceRow": 321,
+      "erpRow": 319
+    },
+    {
+      "code": "30020402",
+      "name": "医疗用品",
+      "level": "细类",
+      "parentCode": "300204",
+      "parentName": "急救品",
+      "sourceRow": 322,
+      "erpRow": 320
+    },
+    {
+      "code": "3003",
+      "name": "百货类",
+      "level": "中类",
+      "parentCode": "30",
+      "parentName": "非食类",
+      "sourceRow": 323,
+      "erpRow": 321
+    },
+    {
+      "code": "300301",
+      "name": "床上用品",
+      "level": "小类",
+      "parentCode": "3003",
+      "parentName": "百货类",
+      "sourceRow": 324,
+      "erpRow": 322
+    },
+    {
+      "code": "30030101",
+      "name": "床单被罩",
+      "level": "细类",
+      "parentCode": "300301",
+      "parentName": "床上用品",
+      "sourceRow": 325,
+      "erpRow": 323
+    },
+    {
+      "code": "30030102",
+      "name": "枕巾枕芯",
+      "level": "细类",
+      "parentCode": "300301",
+      "parentName": "床上用品",
+      "sourceRow": 326,
+      "erpRow": 324
+    },
+    {
+      "code": "30030103",
+      "name": "被褥",
+      "level": "细类",
+      "parentCode": "300301",
+      "parentName": "床上用品",
+      "sourceRow": 327,
+      "erpRow": 325
+    },
+    {
+      "code": "30030104",
+      "name": "夏凉用具",
+      "level": "细类",
+      "parentCode": "300301",
+      "parentName": "床上用品",
+      "sourceRow": 328,
+      "erpRow": 326
+    },
+    {
+      "code": "30030105",
+      "name": "毛毯",
+      "level": "细类",
+      "parentCode": "300301",
+      "parentName": "床上用品",
+      "sourceRow": 329,
+      "erpRow": 327
+    },
+    {
+      "code": "300302",
+      "name": "毛巾",
+      "level": "小类",
+      "parentCode": "3003",
+      "parentName": "百货类",
+      "sourceRow": 330,
+      "erpRow": 328
+    },
+    {
+      "code": "30030201",
+      "name": "成人毛巾",
+      "level": "细类",
+      "parentCode": "300302",
+      "parentName": "毛巾",
+      "sourceRow": 331,
+      "erpRow": 329
+    },
+    {
+      "code": "30030202",
+      "name": "童巾毛巾",
+      "level": "细类",
+      "parentCode": "300302",
+      "parentName": "毛巾",
+      "sourceRow": 332,
+      "erpRow": 330
+    },
+    {
+      "code": "30030203",
+      "name": "纤维鹿皮毛巾",
+      "level": "细类",
+      "parentCode": "300302",
+      "parentName": "毛巾",
+      "sourceRow": 333,
+      "erpRow": 331
+    },
+    {
+      "code": "30030204",
+      "name": "浴巾",
+      "level": "细类",
+      "parentCode": "300302",
+      "parentName": "毛巾",
+      "sourceRow": 334,
+      "erpRow": 332
+    },
+    {
+      "code": "300303",
+      "name": "拖鞋袜子",
+      "level": "小类",
+      "parentCode": "3003",
+      "parentName": "百货类",
+      "sourceRow": 335,
+      "erpRow": 333
+    },
+    {
+      "code": "30030301",
+      "name": "男袜",
+      "level": "细类",
+      "parentCode": "300303",
+      "parentName": "拖鞋袜子",
+      "sourceRow": 336,
+      "erpRow": 334
+    },
+    {
+      "code": "30030302",
+      "name": "女袜",
+      "level": "细类",
+      "parentCode": "300303",
+      "parentName": "拖鞋袜子",
+      "sourceRow": 337,
+      "erpRow": 335
+    },
+    {
+      "code": "30030303",
+      "name": "儿童袜",
+      "level": "细类",
+      "parentCode": "300303",
+      "parentName": "拖鞋袜子",
+      "sourceRow": 338,
+      "erpRow": 336
+    },
+    {
+      "code": "30030304",
+      "name": "棉拖鞋",
+      "level": "细类",
+      "parentCode": "300303",
+      "parentName": "拖鞋袜子",
+      "sourceRow": 339,
+      "erpRow": 337
+    },
+    {
+      "code": "30030305",
+      "name": "凉拖鞋",
+      "level": "细类",
+      "parentCode": "300303",
+      "parentName": "拖鞋袜子",
+      "sourceRow": 340,
+      "erpRow": 338
+    },
+    {
+      "code": "30030306",
+      "name": "儿童拖鞋",
+      "level": "细类",
+      "parentCode": "300303",
+      "parentName": "拖鞋袜子",
+      "sourceRow": 341,
+      "erpRow": 339
+    },
+    {
+      "code": "300304",
+      "name": "内衣",
+      "level": "小类",
+      "parentCode": "3003",
+      "parentName": "百货类",
+      "sourceRow": 342,
+      "erpRow": 340
+    },
+    {
+      "code": "30030401",
+      "name": "男款内衣",
+      "level": "细类",
+      "parentCode": "300304",
+      "parentName": "内衣",
+      "sourceRow": 343,
+      "erpRow": 341
+    },
+    {
+      "code": "30030402",
+      "name": "女款内衣",
+      "level": "细类",
+      "parentCode": "300304",
+      "parentName": "内衣",
+      "sourceRow": 344,
+      "erpRow": 342
+    },
+    {
+      "code": "300305",
+      "name": "服饰配件",
+      "level": "小类",
+      "parentCode": "3003",
+      "parentName": "百货类",
+      "sourceRow": 345,
+      "erpRow": 343
+    },
+    {
+      "code": "30030501",
+      "name": "口罩",
+      "level": "细类",
+      "parentCode": "300305",
+      "parentName": "服饰配件",
+      "sourceRow": 346,
+      "erpRow": 344
+    },
+    {
+      "code": "30030502",
+      "name": "手套耳套",
+      "level": "细类",
+      "parentCode": "300305",
+      "parentName": "服饰配件",
+      "sourceRow": 347,
+      "erpRow": 345
+    },
+    {
+      "code": "30030503",
+      "name": "衣服帽子",
+      "level": "细类",
+      "parentCode": "300305",
+      "parentName": "服饰配件",
+      "sourceRow": 348,
+      "erpRow": 346
+    },
+    {
+      "code": "30030504",
+      "name": "皮带",
+      "level": "细类",
+      "parentCode": "300305",
+      "parentName": "服饰配件",
+      "sourceRow": 349,
+      "erpRow": 347
+    },
+    {
+      "code": "30030505",
+      "name": "箱包",
+      "level": "细类",
+      "parentCode": "300305",
+      "parentName": "服饰配件",
+      "sourceRow": 350,
+      "erpRow": 348
+    },
+    {
+      "code": "30030506",
+      "name": "鞋子",
+      "level": "细类",
+      "parentCode": "300305",
+      "parentName": "服饰配件",
+      "sourceRow": 351,
+      "erpRow": 349
+    },
+    {
+      "code": "30030507",
+      "name": "袖套脖套",
+      "level": "细类",
+      "parentCode": "300305",
+      "parentName": "服饰配件",
+      "sourceRow": 352,
+      "erpRow": 350
+    },
+    {
+      "code": "30030508",
+      "name": "鞋垫",
+      "level": "细类",
+      "parentCode": "300305",
+      "parentName": "服饰配件",
+      "sourceRow": 353,
+      "erpRow": 351
+    },
+    {
+      "code": "300306",
+      "name": "家居用品",
+      "level": "小类",
+      "parentCode": "3003",
+      "parentName": "百货类",
+      "sourceRow": 354,
+      "erpRow": 352
+    },
+    {
+      "code": "30030601",
+      "name": "婴幼儿用品",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 355,
+      "erpRow": 353
+    },
+    {
+      "code": "30030602",
+      "name": "男士刮胡用品",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 356,
+      "erpRow": 354
+    },
+    {
+      "code": "30030603",
+      "name": "垃圾桶",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 357,
+      "erpRow": 355
+    },
+    {
+      "code": "30030604",
+      "name": "垃圾袋",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 358,
+      "erpRow": 356
+    },
+    {
+      "code": "30030605",
+      "name": "盆桶类",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 359,
+      "erpRow": 357
+    },
+    {
+      "code": "30030606",
+      "name": "漱口杯",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 360,
+      "erpRow": 358
+    },
+    {
+      "code": "30030607",
+      "name": "一次性杯子",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 361,
+      "erpRow": 359
+    },
+    {
+      "code": "30030608",
+      "name": "保温杯壶",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 362,
+      "erpRow": 360
+    },
+    {
+      "code": "30030609",
+      "name": "茶杯茶具",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 363,
+      "erpRow": 361
+    },
+    {
+      "code": "30030610",
+      "name": "红酒杯",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 364,
+      "erpRow": 362
+    },
+    {
+      "code": "30030611",
+      "name": "白酒杯",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 365,
+      "erpRow": 363
+    },
+    {
+      "code": "30030612",
+      "name": "其他玻璃制品",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 366,
+      "erpRow": 364
+    },
+    {
+      "code": "30030613",
+      "name": "棉签/牙签",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 367,
+      "erpRow": 365
+    },
+    {
+      "code": "30030614",
+      "name": "一次性碗手套",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 368,
+      "erpRow": 366
+    },
+    {
+      "code": "30030615",
+      "name": "胶皮手套",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 369,
+      "erpRow": 367
+    },
+    {
+      "code": "30030616",
+      "name": "保鲜膜/袋",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 370,
+      "erpRow": 368
+    },
+    {
+      "code": "30030617",
+      "name": "镜子梳子",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 371,
+      "erpRow": 369
+    },
+    {
+      "code": "30030618",
+      "name": "台布桌布",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 372,
+      "erpRow": 370
+    },
+    {
+      "code": "30030619",
+      "name": "雨具类",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 373,
+      "erpRow": 371
+    },
+    {
+      "code": "30030620",
+      "name": "衣架",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 374,
+      "erpRow": 372
+    },
+    {
+      "code": "30030621",
+      "name": "粘钩",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 375,
+      "erpRow": 373
+    },
+    {
+      "code": "30030622",
+      "name": "扫把拖把",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 376,
+      "erpRow": 374
+    },
+    {
+      "code": "30030623",
+      "name": "板凳",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 377,
+      "erpRow": 375
+    },
+    {
+      "code": "30030624",
+      "name": "刷子皂盒",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 378,
+      "erpRow": 376
+    },
+    {
+      "code": "30030625",
+      "name": "洗浴用品",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 379,
+      "erpRow": 377
+    },
+    {
+      "code": "30030626",
+      "name": "室内装饰品",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 380,
+      "erpRow": 378
+    },
+    {
+      "code": "30030627",
+      "name": "收纳工具",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 381,
+      "erpRow": 379
+    },
+    {
+      "code": "30030628",
+      "name": "殡葬用品",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 382,
+      "erpRow": 380
+    },
+    {
+      "code": "30030629",
+      "name": "日杂用品",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 383,
+      "erpRow": 381
+    },
+    {
+      "code": "30030630",
+      "name": "热水袋、暖宝宝",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 384,
+      "erpRow": 382
+    },
+    {
+      "code": "30030631",
+      "name": "卫浴用品",
+      "level": "细类",
+      "parentCode": "300306",
+      "parentName": "家居用品",
+      "sourceRow": 385,
+      "erpRow": 383
+    },
+    {
+      "code": "300307",
+      "name": "厨房用品",
+      "level": "小类",
+      "parentCode": "3003",
+      "parentName": "百货类",
+      "sourceRow": 386,
+      "erpRow": 384
+    },
+    {
+      "code": "30030701",
+      "name": "筷子",
+      "level": "细类",
+      "parentCode": "300307",
+      "parentName": "厨房用品",
+      "sourceRow": 387,
+      "erpRow": 385
+    },
+    {
+      "code": "30030702",
+      "name": "锅铲勺子类",
+      "level": "细类",
+      "parentCode": "300307",
+      "parentName": "厨房用品",
+      "sourceRow": 388,
+      "erpRow": 386
+    },
+    {
+      "code": "30030703",
+      "name": "碗",
+      "level": "细类",
+      "parentCode": "300307",
+      "parentName": "厨房用品",
+      "sourceRow": 389,
+      "erpRow": 387
+    },
+    {
+      "code": "30030704",
+      "name": "盘子",
+      "level": "细类",
+      "parentCode": "300307",
+      "parentName": "厨房用品",
+      "sourceRow": 390,
+      "erpRow": 388
+    },
+    {
+      "code": "30030705",
+      "name": "汤盆保温桶盒",
+      "level": "细类",
+      "parentCode": "300307",
+      "parentName": "厨房用品",
+      "sourceRow": 391,
+      "erpRow": 389
+    },
+    {
+      "code": "30030706",
+      "name": "锅/堡壶类",
+      "level": "细类",
+      "parentCode": "300307",
+      "parentName": "厨房用品",
+      "sourceRow": 392,
+      "erpRow": 390
+    },
+    {
+      "code": "30030707",
+      "name": "调料罐瓶类",
+      "level": "细类",
+      "parentCode": "300307",
+      "parentName": "厨房用品",
+      "sourceRow": 393,
+      "erpRow": 391
+    },
+    {
+      "code": "30030708",
+      "name": "厨房清洁用具",
+      "level": "细类",
+      "parentCode": "300307",
+      "parentName": "厨房用品",
+      "sourceRow": 394,
+      "erpRow": 392
+    },
+    {
+      "code": "30030709",
+      "name": "厨房杂品",
+      "level": "细类",
+      "parentCode": "300307",
+      "parentName": "厨房用品",
+      "sourceRow": 395,
+      "erpRow": 393
+    },
+    {
+      "code": "300308",
+      "name": "五金类",
+      "level": "小类",
+      "parentCode": "3003",
+      "parentName": "百货类",
+      "sourceRow": 396,
+      "erpRow": 394
+    },
+    {
+      "code": "30030801",
+      "name": "维修工具",
+      "level": "细类",
+      "parentCode": "300308",
+      "parentName": "五金类",
+      "sourceRow": 397,
+      "erpRow": 395
+    },
+    {
+      "code": "30030802",
+      "name": "插线板",
+      "level": "细类",
+      "parentCode": "300308",
+      "parentName": "五金类",
+      "sourceRow": 398,
+      "erpRow": 396
+    },
+    {
+      "code": "30030803",
+      "name": "汽车用品",
+      "level": "细类",
+      "parentCode": "300308",
+      "parentName": "五金类",
+      "sourceRow": 399,
+      "erpRow": 397
+    },
+    {
+      "code": "30030804",
+      "name": "灯具照明开关",
+      "level": "细类",
+      "parentCode": "300308",
+      "parentName": "五金类",
+      "sourceRow": 400,
+      "erpRow": 398
+    },
+    {
+      "code": "30030805",
+      "name": "电池",
+      "level": "细类",
+      "parentCode": "300308",
+      "parentName": "五金类",
+      "sourceRow": 401,
+      "erpRow": 399
+    },
+    {
+      "code": "30030806",
+      "name": "锁具类",
+      "level": "细类",
+      "parentCode": "300308",
+      "parentName": "五金类",
+      "sourceRow": 402,
+      "erpRow": 400
+    },
+    {
+      "code": "30030807",
+      "name": "小五金工具",
+      "level": "细类",
+      "parentCode": "300308",
+      "parentName": "五金类",
+      "sourceRow": 403,
+      "erpRow": 401
+    },
+    {
+      "code": "300309",
+      "name": "玩具类",
+      "level": "小类",
+      "parentCode": "3003",
+      "parentName": "百货类",
+      "sourceRow": 404,
+      "erpRow": 402
+    },
+    {
+      "code": "30030901",
+      "name": "毛绒玩具",
+      "level": "细类",
+      "parentCode": "300309",
+      "parentName": "玩具类",
+      "sourceRow": 405,
+      "erpRow": 403
+    },
+    {
+      "code": "30030902",
+      "name": "益智玩具",
+      "level": "细类",
+      "parentCode": "300309",
+      "parentName": "玩具类",
+      "sourceRow": 406,
+      "erpRow": 404
+    },
+    {
+      "code": "30030903",
+      "name": "塑料玩具",
+      "level": "细类",
+      "parentCode": "300309",
+      "parentName": "玩具类",
+      "sourceRow": 407,
+      "erpRow": 405
+    },
+    {
+      "code": "300310",
+      "name": "电器类",
+      "level": "小类",
+      "parentCode": "3003",
+      "parentName": "百货类",
+      "sourceRow": 408,
+      "erpRow": 406
+    },
+    {
+      "code": "30031001",
+      "name": "电饭锅煲类",
+      "level": "细类",
+      "parentCode": "300310",
+      "parentName": "电器类",
+      "sourceRow": 409,
+      "erpRow": 407
+    },
+    {
+      "code": "30031002",
+      "name": "美发电器",
+      "level": "细类",
+      "parentCode": "300310",
+      "parentName": "电器类",
+      "sourceRow": 410,
+      "erpRow": 408
+    },
+    {
+      "code": "30031003",
+      "name": "调温类电器",
+      "level": "细类",
+      "parentCode": "300310",
+      "parentName": "电器类",
+      "sourceRow": 411,
+      "erpRow": 409
+    },
+    {
+      "code": "30031004",
+      "name": "豆浆绞肉机类",
+      "level": "细类",
+      "parentCode": "300310",
+      "parentName": "电器类",
+      "sourceRow": 412,
+      "erpRow": 410
+    },
+    {
+      "code": "30031005",
+      "name": "电烤箱",
+      "level": "细类",
+      "parentCode": "300310",
+      "parentName": "电器类",
+      "sourceRow": 413,
+      "erpRow": 411
+    },
+    {
+      "code": "30031006",
+      "name": "电磁炉",
+      "level": "细类",
+      "parentCode": "300310",
+      "parentName": "电器类",
+      "sourceRow": 414,
+      "erpRow": 412
+    },
+    {
+      "code": "30031007",
+      "name": "电水壶",
+      "level": "细类",
+      "parentCode": "300310",
+      "parentName": "电器类",
+      "sourceRow": 415,
+      "erpRow": 413
+    },
+    {
+      "code": "30031008",
+      "name": "其他电器",
+      "level": "细类",
+      "parentCode": "300310",
+      "parentName": "电器类",
+      "sourceRow": 416,
+      "erpRow": 414
+    },
+    {
+      "code": "300311",
+      "name": "饰品杂货类",
+      "level": "小类",
+      "parentCode": "3003",
+      "parentName": "百货类",
+      "sourceRow": 417,
+      "erpRow": 415
+    },
+    {
+      "code": "30031101",
+      "name": "饰品",
+      "level": "细类",
+      "parentCode": "300311",
+      "parentName": "饰品杂货类",
+      "sourceRow": 418,
+      "erpRow": 416
+    },
+    {
+      "code": "30031102",
+      "name": "扑克",
+      "level": "细类",
+      "parentCode": "300311",
+      "parentName": "饰品杂货类",
+      "sourceRow": 419,
+      "erpRow": 417
+    },
+    {
+      "code": "30031103",
+      "name": "购物袋",
+      "level": "细类",
+      "parentCode": "300311",
+      "parentName": "饰品杂货类",
+      "sourceRow": 420,
+      "erpRow": 418
+    },
+    {
+      "code": "30031104",
+      "name": "花卉",
+      "level": "细类",
+      "parentCode": "300311",
+      "parentName": "饰品杂货类",
+      "sourceRow": 421,
+      "erpRow": 419
+    },
+    {
+      "code": "80",
+      "name": "香烟类",
+      "level": "大类",
+      "parentCode": "00",
+      "parentName": "总类",
+      "sourceRow": 422,
+      "erpRow": 420
+    },
+    {
+      "code": "8001",
+      "name": "香烟",
+      "level": "中类",
+      "parentCode": "80",
+      "parentName": "香烟类",
+      "sourceRow": 423,
+      "erpRow": 421
+    },
+    {
+      "code": "800101",
+      "name": "国产烟",
+      "level": "小类",
+      "parentCode": "8001",
+      "parentName": "香烟",
+      "sourceRow": 424,
+      "erpRow": 422
+    },
+    {
+      "code": "80010101",
+      "name": "粗支香烟",
+      "level": "细类",
+      "parentCode": "800101",
+      "parentName": "国产烟",
+      "sourceRow": 425,
+      "erpRow": 423
+    },
+    {
+      "code": "80010102",
+      "name": "细支香烟",
+      "level": "细类",
+      "parentCode": "800101",
+      "parentName": "国产烟",
+      "sourceRow": 426,
+      "erpRow": 424
+    },
+    {
+      "code": "80010103",
+      "name": "雪茄",
+      "level": "细类",
+      "parentCode": "800101",
+      "parentName": "国产烟",
+      "sourceRow": 427,
+      "erpRow": 425
+    },
+    {
+      "code": "800102",
+      "name": "进口烟",
+      "level": "小类",
+      "parentCode": "8001",
+      "parentName": "香烟",
+      "sourceRow": 428,
+      "erpRow": 426
+    },
+    {
+      "code": "80010201",
+      "name": "进口香烟",
+      "level": "细类",
+      "parentCode": "800102",
+      "parentName": "进口烟",
+      "sourceRow": 429,
+      "erpRow": 427
+    },
+    {
+      "code": "800103",
+      "name": "电子烟",
+      "level": "小类",
+      "parentCode": "8001",
+      "parentName": "香烟",
+      "sourceRow": 430,
+      "erpRow": 428
+    },
+    {
+      "code": "80010301",
+      "name": "电子香烟",
+      "level": "细类",
+      "parentCode": "800103",
+      "parentName": "电子烟",
+      "sourceRow": 431,
+      "erpRow": 429
+    },
+    {
+      "code": "80010302",
+      "name": "过滤嘴",
+      "level": "细类",
+      "parentCode": "800103",
+      "parentName": "电子烟",
+      "sourceRow": 432,
+      "erpRow": 430
+    },
+    {
+      "code": "99",
+      "name": "默认类别",
+      "level": "大类",
+      "parentCode": "00",
+      "parentName": "总类",
+      "sourceRow": 433,
+      "erpRow": 431
+    },
+    {
+      "code": "9999",
+      "name": "默认类别",
+      "level": "中类",
+      "parentCode": "99",
+      "parentName": "默认类别",
+      "sourceRow": 434,
+      "erpRow": 432
+    },
+    {
+      "code": "999999",
+      "name": "默认类别",
+      "level": "小类",
+      "parentCode": "9999",
+      "parentName": "默认类别",
+      "sourceRow": 435,
+      "erpRow": 433
+    },
+    {
+      "code": "99999999",
+      "name": "默认类别",
+      "level": "细类",
+      "parentCode": "999999",
+      "parentName": "默认类别",
+      "sourceRow": 436,
+      "erpRow": 434
+    }
+  ]
+}
