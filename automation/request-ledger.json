@@ -6,17 +6,10 @@
   },
   "initializationBasis": "Existing local service request counts; user confirmed this is the only calling project. Account console usage not inspected.",
   "lastResult": {
-    "runId": "37623805820:1",
+    "runId": "37702342401:1",
     "month": "2026-10",
     "status": "ok",
     "requestsMade": 2,
-    "completedAt": "2026-10-07T12:49:44.037Z"
-  },
-  "pending": {
-    "runId": "37702342401:1",
-    "month": "2026-10",
-    "before": 6,
-    "allocation": 2,
-    "reservedAt": "2026-10-07T23:27:16.007Z"
+    "completedAt": "2026-10-07T23:27:18.088Z"
   }
 }
