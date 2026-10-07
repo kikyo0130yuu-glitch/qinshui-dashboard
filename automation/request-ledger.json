@@ -1,8 +1,0 @@
-{
-  "version": 1,
-  "monthlyCap": 100,
-  "requests": {
-    "2026-10": 4
-  },
-  "initializationBasis": "Existing local service request counts; user confirmed this is the only calling project. Account console usage not inspected."
-}

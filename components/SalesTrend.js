@@ -69,8 +69,8 @@
       ? row.actual / row.prediction.pointSalesCny * 100 : null;
     const actualSeries = {
       name: '实际销售额', type: 'bar', barWidth: hasForecast ? 28 : 38, itemStyle: { color: barColor }, z: 3,
-      data: rows.map(row => ({ value: toPlotAmount(row.actual), itemStyle: row.partial ? { opacity: .8, borderColor: barColor, borderWidth: 1, borderType: 'dashed' } : undefined, label: row.partial
-        ? { show: false }
+      data: rows.map(row => ({ value: toPlotAmount(row.actual), itemStyle: row.partial ? { opacity: .8, borderColor: barColor, borderWidth: 1, borderType: 'dashed' } : undefined, label: completionRatio(row) != null
+        ? { distance: 6, formatter: params => formatPlotAmount(params.value) + '  完成 ' + completionRatio(row).toFixed(2) + '%' }
         : row.actual!=null&&row.estimate!=null&&maximum>0&&(row.estimate-row.actual)/maximum>.03&&(row.estimate-row.actual)/maximum<.23?{distance:28}:undefined })),
       label: { show: true, position: 'top', distance: configuredForecast ? 18 : 10, color: barColor, fontSize: 16, formatter: params => formatPlotAmount(params.value) }
     };
@@ -115,13 +115,14 @@
           if (!row) return '';
           const title = row.month.slice(0, 4) + '年' + row.monthNumber + '月';
           const lines = [title];
-          if (row.actual != null && !row.partial) lines.push('实际销售额：' + formatAmount(row.actual));
-          else if (row.actual == null && !row.prediction) lines.push('实际销售额：—');
+          if (row.actual != null) lines.push('实际销售额：' + formatAmount(row.actual) + (row.partial ? '（' + cutoffLabel(row) + '）' : ''));
+          else if (!row.prediction) lines.push('实际销售额：—');
           if (row.estimate != null) lines.push((hasForecast?'已有预期':'销售预估')+'：' + formatAmount(row.estimate));
           else if (!row.prediction) lines.push('销售预估：—');
           if (row.prediction) {
             if (configuredForecast) {
               lines.push((row.month === forecast.currentMonth?.month ? '当月预测：' : '预测销售额：') + formatAmount(row.prediction.pointSalesCny));
+              if (completionRatio(row) != null) lines.push('实际 / 当月预期：' + completionRatio(row).toFixed(2) + '%（' + cutoffLabel(row) + '）');
             } else {
               lines.push('预测销售额 / 模型预期：' + formatAmount(row.prediction.pointSalesCny));
               lines.push('情景范围：' + formatAmount(row.prediction.scenarioLowerSalesCny) + '–' + formatAmount(row.prediction.scenarioUpperSalesCny));
@@ -129,7 +130,7 @@
           }
           return lines.join('<br>');
         } },
-      xAxis: { type: 'category', data: rows.map(row => monthLabel(row) + (row.prediction && row.actual == null ? '\n预测' : '')),
+      xAxis: { type: 'category', data: rows.map(row => monthLabel(row) + (row.prediction && row.actual == null ? '\n预测' : row.partial ? '\n' + cutoffLabel(row) : '')),
         axisLabel: { color: palette.muted, fontSize: 18, lineHeight: 22, interval: 0, margin: 10 }, axisTick: { show: false }, axisLine: { lineStyle: { color: palette.grid } } },
       yAxis: { type: 'value', name: axisUnit.unit, min: 0, max: configuredForecast ? axisMaximum : undefined, splitNumber: 3, nameTextStyle: { color: palette.muted, fontSize: 16 },
         axisLabel: { color: palette.muted, fontSize: 17, formatter: value => value.toLocaleString('zh-CN') }, axisTick: { show: false }, axisLine: { show: false }, splitLine: { lineStyle: { color: palette.grid } } },

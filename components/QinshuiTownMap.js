@@ -364,13 +364,6 @@
         const scale=isOrigin?this.parkMarkerScale():1;
         const [x, y] = projection([p.longitude, p.latitude]), style = isOrigin?{label:'供应链园区',color:this.data.settings.dispatchOriginColor||'#FE0100',icon:d3.symbol().type(d3.symbolStar).size(500*scale*scale)()}:types[p.type] || fallback;
         const marker = node('g', { transform: `translate(${x},${y})`, class: 'map-marker', 'data-point-id':p.id, 'data-point-type':p.type, 'data-marker-scale':scale, tabindex: 0, role: 'button', 'aria-label': `${p.name}，${style.label}`, style: `color:${style.color}` });
-        const coincident=this.pointInfo.filter(other=>other.point.longitude===sourcePoint.longitude&&other.point.latitude===sourcePoint.latitude);
-        if(coincident.length>1){
-          // Concentric glyphs share the exact projected position; no geographic offset.
-          const index=coincident.findIndex(other=>other.point.id===p.id);
-          marker.setAttribute('data-coincident-count',coincident.length);
-          marker.append(node('circle',{r:13+index*4,fill:'none',stroke:'currentColor','stroke-width':1.4,class:'map-overlap-ring'}));
-        }
         const light=style.marker==='light';
         const pulse = this.markerPulse(isOrigin?25*scale:light?8:17,isOrigin?22*scale:light?8:15,isOrigin?34*scale:light?14:22,'map-marker-pulse');
         marker.append(pulse);
@@ -384,7 +377,7 @@
           marker.append(halo,dot,node('circle',{r:1.4,fill:'#ffffff','fill-opacity':.85,class:'business-light-core'}));
         }else marker.append(node('circle', { r: isOrigin?23*scale:16, fill: '#091726', stroke: 'currentColor', 'stroke-width': isOrigin?1.5*scale:1.5 }),
           node('path', { d: style.icon, fill: isOrigin?'currentColor':'none', stroke: 'currentColor', 'stroke-width': isOrigin?2*scale:2, class:isOrigin?'park-star':'point-icon' }));
-        marker.append(node('title', {}, coincident.length>1?coincident.map(other=>other.point.name).join('、')+' · 同一坐标':`${p.name} · ${style.label}`));
+        marker.append(node('title', {}, `${p.name} · ${style.label}`));
         if(isOrigin)marker.append(node('text',{x:0,y:32,'text-anchor':'middle',class:'park-name'},p.name));
         const select = () => { this.showPoint(p, style); this.container.dispatchEvent(new CustomEvent('pointselect', { detail: { ...p } })); };
         marker.onclick = select;
@@ -413,13 +406,6 @@
       const coordinate = document.createElement('p'); coordinate.textContent = `${point.longitude.toFixed(6)}, ${point.latitude.toFixed(6)} · WGS84`;
       const close = document.createElement('button'); close.textContent = '关闭'; close.onclick = () => card.remove();
       card.append(name, type, coordinate, close); this.container.append(card); close.focus();
-      const coincident=this.pointInfo.filter(info=>info.point.longitude===point.longitude&&info.point.latitude===point.latitude);
-      if(coincident.length>1){
-        const heading=document.createElement('p');heading.textContent='同一坐标的业务网点：';
-        const list=document.createElement('ul');list.className='coincident-point-list';
-        for(const info of coincident){const item=document.createElement('li');item.textContent=info.point.name+' · '+(types[info.point.type]||fallback).label;list.append(item);}
-        card.insertBefore(heading,close);card.insertBefore(list,close);
-      }
     }
     destroy() { this.observer.disconnect(); this.container.replaceChildren(); }
   }
