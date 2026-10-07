@@ -5,12 +5,12 @@
   "currency": "CNY",
   "scenario": {
     "policy": "configured-monthly-estimates",
-    "configurationSource": "user-authorized-placeholder",
+    "configurationSource": "user-configuration",
     "userAuthorized": true,
     "anchorMonth": "2026-10",
-    "anchorSalesCny": 2002600,
-    "anchorSource": "user-request-correction",
-    "asOfDate": "2026-10-06",
+    "anchorSalesCny": 1826500,
+    "anchorSource": "user-request",
+    "asOfDate": "2026-10-07",
     "observedThrough": "2026-10-05",
     "horizonMonths": 3,
     "fittedModel": false,
@@ -20,7 +20,7 @@
   },
   "currentMonth": {
     "month": "2026-10",
-    "pointSalesCny": 2002600,
+    "pointSalesCny": 1826500,
     "type": "configured-current-month-projection",
     "sourceKind": "configured-monthly-estimates",
     "isActual": false
@@ -29,10 +29,10 @@
     {
       "month": "2026-11",
       "step": 1,
-      "pointSalesCny": 2020000,
+      "pointSalesCny": 2162600,
       "type": "configured-monthly-estimate",
       "sourceKind": "configured-monthly-estimates",
-      "source": "user-authorized-placeholder",
+      "source": "user-provided-forecast",
       "isActual": false
     },
     {

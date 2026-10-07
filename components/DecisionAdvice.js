@@ -38,8 +38,7 @@
   }
 
   function intervalSeconds(value) {
-    const number = Number(value);
-    return Number.isFinite(number) ? Math.max(30, Math.min(300, Math.round(number))) : 30;
+    return 60;
   }
 
   function normalizeEndpoint(value) {
@@ -58,7 +57,7 @@
   }
 
   function readStoredConfig() {
-    const defaults = { endpoint: '', enabled: false, interval: 30 };
+    const defaults = { endpoint: '', enabled: false, interval: 60 };
     try {
       const saved = JSON.parse(global.localStorage.getItem(STORAGE_KEY) || 'null');
       if (!saved || typeof saved !== 'object') return defaults;
@@ -110,7 +109,7 @@
       name: clean(store && store.name), amount: number(store && store.amount), count: number(store && store.count)
     })).filter((store) => store.name) : [];
     return {
-      businessDate: clean(source.businessDate, 20), mode: clean(source.mode, 30),
+      businessDate: date(source.businessDate) || '', sourceDate: date(source.sourceDate), mode: clean(source.mode, 30),
       sourceKind: clean(source.sourceKind, 60), sourceVersion: clean(String(source.sourceVersion || ''), 120),
       displayComposition: clean(source.displayComposition, 40), baselineSales: number(source.baselineSales),
       updatedAt: clean(source.updatedAt, 40), displayedSales: number(source.displayedSales),
@@ -139,15 +138,17 @@
 
   function localAdvice(snapshot) {
     const step = integer(snapshot.orderCount) || 0;
-    const pick = options => options[step % options.length];
-    const rule = (type, label, id, text, emphasis, evidence, sources) => ({ type, label, ruleId: id, ruleVersion: RULE_VERSION, text, emphasis, evidence, sources });
+    const pick = options => options[(step + Math.floor(Date.now() / 60000)) % options.length];
+    const todayLabel = snapshot.businessDate ? `${Number(snapshot.businessDate.slice(5,7))}月${Number(snapshot.businessDate.slice(8))}日 · ` : '';
+    const rule = (type, label, id, text, emphasis, evidence, sources) => ({ type, label, ruleId: id, ruleVersion: RULE_VERSION, text:todayLabel+text, emphasis, evidence, sources });
     const recent = snapshot.recentOrder, top = snapshot.topOrderStores[0];
     const store = recent && recent.name ? recent : top;
     const net = amount(snapshot.netOrderSales), storeAmount = amount(store && store.amount);
+    const netLabel=snapshot.sourceKind==='historical'?'历史订单净额':'今日订单净额';
     const sales = store
-      ? `${store.name}${recent ? '最新净额' : '订单净额'}${storeAmount}；订单净额${net}，先核对SKU可售量再补货。`
-      : `订单净额${net}（${count(snapshot.orderCount)}单）；补齐门店SKU库存与到货，再核对补货。`;
-    const salesText = pick([sales, `订单净额${net}；${snapshot.refundCount > 0 ? '含' + count(snapshot.refundCount) + '笔负额单，先核对退单与对账。' : '先按门店、品类核对销售与到货，再安排补货。'}`]);
+      ? `${store.name}${recent ? '最新净额' : '订单净额'}${storeAmount}；${netLabel}${net}，先核对SKU可售量再补货。`
+      : `${netLabel}${net}（${count(snapshot.orderCount)}单）；补齐门店SKU库存与到货，再核对补货。`;
+    const salesText = pick([sales, `${netLabel}${net}；${snapshot.refundCount > 0 ? '含' + count(snapshot.refundCount) + '笔负额单，先核对退单与对账。' : '先按门店、品类核对销售与到货，再安排补货。'}`]);
     const active = count(snapshot.logistics.active), total = count(snapshot.logistics.total);
     const ratio = snapshot.logistics.total > 0 && finite(snapshot.logistics.active) ? (snapshot.logistics.active / snapshot.logistics.total * 100).toFixed(2) + '%' : '—';
     const deliveryBase = snapshot.logistics.source === 'configuration' ? `配送${active}/后勤${total}为配置（${ratio}）` : `配送${active}/后勤${total}口径待核验`;
@@ -181,7 +182,9 @@
       && c.identifiedCustomers > 0 && c.purchaseOrders >= c.identifiedCustomers + c.repeatCustomers && c.repeatCustomers !== null && c.repeatCustomers <= c.identifiedCustomers) {
       plans.push({ id: 'plan-member-channel', text: `${consumer.window.days}天会员多次下单${(c.repeatCustomers / c.identifiedCustomers * 100).toFixed(2)}%${consumer.sourceKind === 'historical-order-replay' ? '（原始记录回放）' : ''}；先试门店/团餐组合。`, emphasis: [] });
     }
-    if (!plans.length) plans.push({ id: 'plan-channel-readiness', text: `10月规划配置：新增门店${count(snapshot.plans.octStores)}家/后勤${count(snapshot.plans.octLogistics)}点；先核对团餐需求与配送资源。`, emphasis: [] });
+    if (!plans.length) plans.push({ id: 'plan-channel-readiness', text: Number(snapshot.businessDate.slice(5,7))===10
+      ? `10月规划配置：新增门店${count(snapshot.plans.octStores)}家/后勤${count(snapshot.plans.octLogistics)}点；先核对团餐需求与配送资源。`
+      : '按当月网点计划核对团餐需求与配送资源，确认新增网点承接能力。', emphasis: [] });
     const plan = pick(plans);
     const weather = snapshot.weather, sourceTime = Date.parse(weather.dailyFetchedAt || weather.currentFetchedAt || '');
     const referenceTime = Date.parse(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(snapshot.updatedAt) ? snapshot.updatedAt.replace(' ', 'T') + '+08:00' : snapshot.updatedAt);
@@ -253,6 +256,8 @@
       this.latest = null; this.latestHash = ''; this.latestIdentity = ''; this.lastAI = null; this.sequence = 0;
       this.inflight = null; this.timer = null; this.lastRequestedAt = -Infinity; this.destroyed = false;
       this.handleSave = () => this.saveConfig();
+      this.onRefresh = typeof options.onRefresh === 'function' ? options.onRefresh : () => {};
+      this.refreshTimer = global.setInterval(() => { this.onRefresh(); this.refreshAdvice(); }, 60000);
       if (this.configElements.save) this.configElements.save.addEventListener('click', this.handleSave);
       this.fillConfig(); installMotion(); this.status('本地规则建议；AI 分析尚未启用。');
     }
@@ -290,15 +295,18 @@
     update(input) {
       if (this.destroyed) return;
       const snapshot = summary(input), hash = fingerprint(snapshot), sourceIdentity = identity(snapshot);
-      if (this.latestHash === hash) return;
-      if (this.latestIdentity && this.latestIdentity !== sourceIdentity) { this.cancelRequest(); this.lastAI = null; }
+      const firstOrNewSource = !this.latest || this.latestIdentity !== sourceIdentity;
+      if (firstOrNewSource) { this.cancelRequest(); this.lastAI = null; }
       this.latest = snapshot; this.latestHash = hash; this.latestIdentity = sourceIdentity;
-      if (this.config.enabled && this.lastAI && this.lastAI.identity === sourceIdentity) {
-        this.status('AI 建议基于 ' + this.lastAI.snapshot.updatedAt + ' 的汇总；每 ' + this.config.interval + ' 秒按数据变化更新。');
-      } else {
-        this.render(localAdvice(snapshot), 'local-rules', snapshot);
-      }
-      if (!this.config.enabled) this.status('本地规则建议；AI 分析尚未启用。');
+      // Orders update the analysis input immediately. Cards refresh once a
+      // minute; a new day/source clears old advice immediately.
+      if (firstOrNewSource) this.refreshAdvice();
+    }
+
+    refreshAdvice() {
+      if (this.destroyed || !this.latest) return;
+      if (!this.config.enabled || !this.lastAI) this.render(localAdvice(this.latest), 'local-rules', this.latest);
+      if (!this.config.enabled) this.status('每60秒按当日汇总更新本地规则建议；AI 分析尚未启用。');
       this.schedule();
     }
 
@@ -349,12 +357,15 @@
         const call = (async () => {
           const response = await global.fetch(this.config.endpoint, {
             method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ snapshot }), ...(controller ? { signal: controller.signal } : {})
+            body: JSON.stringify({ snapshot, instructions: { businessDate:snapshot.businessDate, adviceDate:snapshot.businessDate,
+              useCurrentBusinessDate:true, preserveHistoricalEvidenceDates:true } }), ...(controller ? { signal: controller.signal } : {})
           });
           if (!response.ok) throw new Error('AI 代理返回 HTTP ' + response.status);
           const contentType = response.headers && typeof response.headers.get === 'function' ? response.headers.get('content-type') : null;
           if (contentType && !contentType.toLowerCase().includes('application/json')) throw new Error('AI 代理须返回 JSON');
-          return validateAIAdvice(await response.json());
+          const payload=await response.json();
+          if(payload.businessDate && payload.businessDate!==snapshot.businessDate)throw new Error('AI 返回的业务日期不是当日');
+          return validateAIAdvice(payload);
         })();
         const advice = await Promise.race([call, deadline]);
         if (this.destroyed || sequence !== this.sequence || sourceIdentity !== this.latestIdentity) return;
@@ -371,7 +382,7 @@
         if (this.inflight === task) this.inflight = null;
         // Same-source AI results remain visible with their analysis time while later totals are analysed.
         // Date, mode, or batch changes invalidate the response via sourceIdentity/sequence above.
-        if (!this.destroyed && sequence === this.sequence && hash !== this.latestHash) this.schedule();
+        // The next minute requests the latest data, even if sales did not change.
       }
     }
 
@@ -384,6 +395,7 @@
 
     destroy() {
       this.destroyed = true; this.cancelRequest();
+      global.clearInterval(this.refreshTimer);
       if (this.configElements.save) this.configElements.save.removeEventListener('click', this.handleSave);
     }
   }

@@ -179,7 +179,9 @@
         rotor.append(node('path',{d:path,fill:'#22d3ee','fill-opacity':.015+.23*((i+1)/segments)**1.6}));
       }
       rotor.append(node('path',{d:`M0,0L${radius},0`,class:'radar-sweep-ray'}));
-      rotor.append(node('animateTransform',{attributeName:'transform',type:'rotate',from:'0',to:'360',dur:`${this.data.settings.radarSweepSeconds||4.2}s`,repeatCount:'indefinite'}));
+      const clockId=this.uid+'-'+className+'-clock';
+      if(className==='radar-business-sweep')this.sweepClockId=clockId;
+      rotor.append(node('animateTransform',{id:clockId,attributeName:'transform',type:'rotate',from:'0',to:'360',dur:`${this.data.settings.radarSweepSeconds||4.2}s`,repeatCount:'indefinite'}));
       centered.append(rotor);
       const clipped=node('g',{'clip-path':`url(#${clipId})`});clipped.append(centered);svg.append(clipped);
     }
@@ -243,20 +245,20 @@
           const scale=this.parkMarkerScale();
           const glyph=node('g',{class:'radar-town-center',transform:`translate(${x},${y})`,style:`color:${appearance.color||'#FE0100'}`,'data-marker-scale':scale});
           // D3 symbol size is area. A quarter of the area halves every linear dimension.
-          const pulse=this.markerPulse(23*scale,22*scale,35*scale,'center-marker-pulse');
-          glyph.append(pulse,node('path',{d:d3.symbol().type(d3.symbolStar).size(600*scale*scale)(),fill:'currentColor',class:'center-park-star'}),node('text',{x:0,y:32,'text-anchor':'middle',class:'park-name'},appearance.displayName));
+          glyph.append(node('path',{d:d3.symbol().type(d3.symbolStar).size(600*scale*scale)(),fill:'currentColor',class:'center-park-star'}),node('text',{x:0,y:32,'text-anchor':'middle',class:'park-name'},appearance.displayName));
           this.radarCenterMarker.append(glyph);
         }else{
           this.radarCenterMarker.append(node('circle',{cx:x,cy:y,r:5,fill:'#a2f5ff',stroke:'#2eace2','stroke-width':2,class:'radar-town-center'}));
           if(!this.data.settings.showTownLabels&&!hasRealOrigin)this.radarCenterMarker.append(node('text',{x:x+12,y:y-12,class:'radar-center-label'},anchor.name));
         }
       }
-      radar.append(node('text',{x:24,y:this.container.clientHeight-47,'text-anchor':'start',class:'radar-caption'},`${this.data.settings.centerMarkerAppearance?.symbol==='star'?'':anchor.name+' · '}辐射半径 ${radiusKm} km`));
+      const labelRadius=this.data.settings.radarLabelRadiusKm||radiusKm;
+      radar.append(node('text',{x:24,y:this.container.clientHeight-47,'text-anchor':'start',class:'radar-caption'},`${this.data.settings.centerMarkerAppearance?.symbol==='star'?'':anchor.name+' · '}辐射半径${labelRadius}km`));
       svg.append(radar);
       this.radarGeometry=circle;
     }
     drawRoutes(svg, projection, origin) {
-      if (!origin) return;
+      if (!origin || this.data.settings.showDispatchRoutes===false) return;
       const routes=node('g',{class:'dispatch-routes','pointer-events':'none'}),staticLines=node('g',{class:'static-business-lines'}),dynamicFlows=node('g',{class:'dynamic-business-flows'});
       const [ox,oy]=projection([origin.point.longitude,origin.point.latitude]);
       const targets=this.pointInfo.filter(info=>['store','canteen'].includes(info.point.type)&&info.point.id!==origin.point.id);
@@ -274,6 +276,24 @@
         }
       });
       routes.append(staticLines,dynamicFlows);svg.append(routes);
+    }
+    sweepHit(point,projection) {
+      if(!this.radarCenterCoordinate)return null;
+      const distanceKm=d3.geoDistance(this.radarCenterCoordinate,[point.longitude,point.latitude])*6371.0088;
+      const radius=this.data.settings.radarRadiusKm||100;
+      if(distanceKm>radius+1e-6)return null;
+      const center=projection(this.radarCenterCoordinate),position=projection([point.longitude,point.latitude]);
+      const angle=(Math.atan2(position[1]-center[1],position[0]-center[0])+2*Math.PI)%(2*Math.PI);
+      return {distanceKm,delay:angle/(2*Math.PI)*(this.data.settings.radarSweepSeconds||4.2)};
+    }
+    addSweepGlow(marker,point,projection,radius) {
+      const hit=this.sweepHit(point,projection);
+      if(!hit||this.reducedMotion()||!this.sweepClockId)return;
+      const glow=node('circle',{r:radius,fill:'currentColor',opacity:0,class:'radar-hit-glow',
+        'data-distance-km':hit.distanceKm,'data-hit-delay':hit.delay,'pointer-events':'none',style:'filter:drop-shadow(0 0 7px currentColor)'});
+      glow.append(node('animate',{attributeName:'opacity',values:'.7;.7;0;0',keyTimes:'0;.025;.15;1',
+        begin:`${this.sweepClockId}.begin+${hit.delay}s`,dur:`${this.data.settings.radarSweepSeconds||4.2}s`,repeatCount:'indefinite'}));
+      marker.append(glow);
     }
     render() {
       if (!this.container) return;
@@ -293,7 +313,7 @@
       const anchor=this.radarAnchor(origin);
       const circle=anchor?QinshuiTownMap.radarCircle(anchor.coordinate,this.data.settings.radarRadiusKm||100):null;
       this.radarCenterCoordinate=anchor?.coordinate||null;
-      this.radarGeometry=null;this.radarPreviewCoordinate=null;this.nationalProjection=null;this.radarCenterMarker=null;
+      this.radarGeometry=null;this.radarPreviewCoordinate=null;this.nationalProjection=null;this.radarCenterMarker=null;this.sweepClockId=null;
       const padding=this.data.settings.mapPadding||{left:48,top:112,right:48,bottom:82};
       const extent=[[padding.left,padding.top],[width-padding.right,height-padding.bottom]];
       const extentFeatures = {type:'FeatureCollection',features:[this.county,...this.towns,
@@ -317,7 +337,7 @@
       this.projection = projection;
       const path = d3.geoPath(projection);
       const svg = node('svg', { viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': '全国地理底图叠加沁水县12乡镇与经纬度业务点位', class: 'town-map-svg' });
-      // Clip all geographic layers to the viewport, including the true 100 km
+      // Clip all geographic layers to the viewport, including the true radar
       // radar circle. Its radius remains geographic when the viewport changes.
       const defs=node('defs'),clip=node('clipPath',{id:this.uid+'-viewport'});
       clip.append(node('rect',{width,height}));defs.append(clip);svg.append(defs);
@@ -364,20 +384,21 @@
         const scale=isOrigin?this.parkMarkerScale():1;
         const [x, y] = projection([p.longitude, p.latitude]), style = isOrigin?{label:'供应链园区',color:this.data.settings.dispatchOriginColor||'#FE0100',icon:d3.symbol().type(d3.symbolStar).size(500*scale*scale)()}:types[p.type] || fallback;
         const marker = node('g', { transform: `translate(${x},${y})`, class: 'map-marker', 'data-point-id':p.id, 'data-point-type':p.type, 'data-marker-scale':scale, tabindex: 0, role: 'button', 'aria-label': `${p.name}，${style.label}`, style: `color:${style.color}` });
+        const coincident=this.pointInfo.filter(other=>other.point.longitude===sourcePoint.longitude&&other.point.latitude===sourcePoint.latitude);
+        if(coincident.length>1){
+          // Concentric glyphs share the exact projected position; no geographic offset.
+          const index=coincident.findIndex(other=>other.point.id===p.id);
+          marker.setAttribute('data-coincident-count',coincident.length);
+          marker.append(node('circle',{r:13+index*4,fill:'none',stroke:'currentColor','stroke-width':1.4,class:'map-overlap-ring'}));
+        }
         const light=style.marker==='light';
-        const pulse = this.markerPulse(isOrigin?25*scale:light?8:17,isOrigin?22*scale:light?8:15,isOrigin?34*scale:light?14:22,'map-marker-pulse');
-        marker.append(pulse);
         if(light){
-          const halo=node('circle',{r:9,fill:'currentColor','fill-opacity':.16,class:'business-light-halo'});
-          const dot=node('circle',{r:4.5,fill:'currentColor',class:'business-light-point',style:'filter:drop-shadow(0 0 5px currentColor)'});
-          if(!this.reducedMotion()){
-            halo.append(node('animate',{attributeName:'fill-opacity',values:'.12;.3;.12',dur:'3s',repeatCount:'indefinite'}));
-            dot.append(node('animate',{attributeName:'opacity',values:'.75;1;.75',dur:'3s',repeatCount:'indefinite'}));
-          }
-          marker.append(halo,dot,node('circle',{r:1.4,fill:'#ffffff','fill-opacity':.85,class:'business-light-core'}));
+          const dot=node('circle',{r:4.5,fill:'currentColor',class:'business-light-point'});
+          marker.append(dot,node('circle',{r:1.4,fill:'#ffffff','fill-opacity':.85,class:'business-light-core'}));
         }else marker.append(node('circle', { r: isOrigin?23*scale:16, fill: '#091726', stroke: 'currentColor', 'stroke-width': isOrigin?1.5*scale:1.5 }),
           node('path', { d: style.icon, fill: isOrigin?'currentColor':'none', stroke: 'currentColor', 'stroke-width': isOrigin?2*scale:2, class:isOrigin?'park-star':'point-icon' }));
-        marker.append(node('title', {}, `${p.name} · ${style.label}`));
+        this.addSweepGlow(marker,p,projection,isOrigin?12*scale:light?9:13);
+        marker.append(node('title', {}, coincident.length>1?coincident.map(other=>other.point.name).join('、')+' · 同一坐标':`${p.name} · ${style.label}`));
         if(isOrigin)marker.append(node('text',{x:0,y:32,'text-anchor':'middle',class:'park-name'},p.name));
         const select = () => { this.showPoint(p, style); this.container.dispatchEvent(new CustomEvent('pointselect', { detail: { ...p } })); };
         marker.onclick = select;
@@ -406,6 +427,13 @@
       const coordinate = document.createElement('p'); coordinate.textContent = `${point.longitude.toFixed(6)}, ${point.latitude.toFixed(6)} · WGS84`;
       const close = document.createElement('button'); close.textContent = '关闭'; close.onclick = () => card.remove();
       card.append(name, type, coordinate, close); this.container.append(card); close.focus();
+      const coincident=this.pointInfo.filter(info=>info.point.longitude===point.longitude&&info.point.latitude===point.latitude);
+      if(coincident.length>1){
+        const heading=document.createElement('p');heading.textContent='同一坐标的业务网点：';
+        const list=document.createElement('ul');list.className='coincident-point-list';
+        for(const info of coincident){const item=document.createElement('li');item.textContent=info.point.name+' · '+(types[info.point.type]||fallback).label;list.append(item);}
+        card.insertBefore(heading,close);card.insertBefore(list,close);
+      }
     }
     destroy() { this.observer.disconnect(); this.container.replaceChildren(); }
   }

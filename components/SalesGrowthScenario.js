@@ -42,7 +42,7 @@
     const anchorSalesCny = currentRow && currentRow.estimatedSalesCny;
     const result = {
       status: 'unavailable', sourceKind: MONTHLY_POLICY, scenarioVersion: MONTHLY_VERSION, currency: 'CNY',
-      scenario: { policy: MONTHLY_POLICY, configurationSource: 'user-authorized-placeholder', userAuthorized: true,
+      scenario: { policy: MONTHLY_POLICY, configurationSource: 'user-configuration', userAuthorized: true,
         anchorMonth, anchorSalesCny: anchorSalesCny == null ? null : anchorSalesCny,
         anchorSource: currentRow && currentRow.estimateRevision ? currentRow.estimateRevision.source : 'user-provided-expectation',
         asOfDate, observedThrough: observedThrough(monthlySales.months, asOfDate), horizonMonths,
@@ -68,7 +68,7 @@
       if (!validMonth(month)) throw new TypeError('growth_scenario_date_out_of_range');
       const row = futureByMonth.get(month);
       if (!row || row.estimatedSalesCny == null) { missingMonths.push(month); continue; }
-      if (row.source !== 'user-authorized-placeholder') throw new TypeError('invalid_configured_estimate_source');
+      if (!['user-authorized-placeholder','user-provided-forecast'].includes(row.source)) throw new TypeError('invalid_configured_estimate_source');
       if (row.configuredAt !== undefined && (!validDate(row.configuredAt) || row.configuredAt > asOfDate)) throw new TypeError('invalid_configured_estimate_date');
       const cents = toCents(row.estimatedSalesCny);
       if (row.maximumSalesCny != null && cents > toCents(row.maximumSalesCny)) throw new TypeError('configured_estimate_exceeds_maximum');

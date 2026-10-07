@@ -183,6 +183,29 @@
     };
   }
 
+  function adviceCatalog(snapshot) {
+    const primary=deriveRules(snapshot),items=[
+      {type:'demand',label:'需求',color:'#64d6ad',rule:primary.demand},
+      {type:'agriculture',label:'农业',color:'#ffe551',rule:primary.agriculture}
+    ];
+    if(!snapshot||!snapshot.days.length)return items;
+    const days=snapshot.days,values=field=>days.map(day=>day[field]).filter(finite);
+    const highs=values('high'),lows=values('low'),rain=values('dayPrecipitationMm'),probability=values('precipitationProbabilityPercent');
+    const maxHigh=highs.length?Math.max(...highs):null,minLow=lows.length?Math.min(...lows):null;
+    const maxRain=rain.length?Math.max(...rain):null,maxProbability=probability.length?Math.max(...probability):null;
+    const winds=days.map(day=>maximumWind(day.windScale)).filter(finite),maxWind=winds.length?Math.max(...winds):null;
+    const add=(type,label,color,id,text,fields)=>items.push({type,label,color,rule:{id,version:'weather-advice-v2',text,condition:'天气与县域供应链运营参考规则',evidence:days.map(day=>Object.fromEntries(['date',...fields].map(field=>[field,day[field]])))}});
+    if(minLow!==null)add('demand','需求','#64d6ad','demand-batch',minLow<=12?`预报最低${minLow}°C，热食热饮分批补货，核对早晚销量。`:`预报最低${minLow}°C，按时段销量调整鲜食备货。`,['low']);
+    add('logistics','配送','#2eace2','logistics-rain',maxProbability!==null&&maxProbability>=60?`白天降雨概率最高${maxProbability}%，提前核查道路与装车防雨。`:'核对次日网点订单与送达时段，按线路合并配送。',['precipitationProbabilityPercent']);
+    if(maxWind!==null)add('logistics','配送','#2eace2','logistics-wind',maxWind>=6?`预报风力最高${maxWind}级，检查货物固定和园区装卸。`:`预报风力最高${maxWind}级，检查车辆与交接安排。`,['windScale']);
+    if(maxHigh!==null)add('storage','仓储','#94d7f5','storage-temperature',`预报最高${maxHigh}°C，核查生鲜到货温度与冷链交接。`,['high']);
+    add('storage','仓储','#94d7f5','storage-turnover','叶菜、肉品分区存放，按批次先入先出，核查临期商品。',['high','low']);
+    if(maxRain!==null)add('agriculture','农业','#ffe551','agriculture-harvest',maxRain>=10?`白天雨量最高${maxRain}mm，检查田间排水，调整采收安排。`:'采收前核对天气窗口，采后分级并及时转运。',['dayPrecipitationMm']);
+    add('purchase','采购','#ffe551','purchase-orders','结合未来7天预报、门店订单和可用库存，分批采购生鲜。',['high','low','dayPrecipitationMm']);
+    add('purchase','采购','#ffe551','purchase-suppliers','向合作社确认次日可供数量与质量，核对门店和食堂需求。',['high','low']);
+    return items;
+  }
+
   function attributionURL(value) {
     try {
       const url = new URL(value);
@@ -234,6 +257,7 @@
       this.config = { endpoint: DEFAULT_ENDPOINT, enabled: true, intervalMs: 600000 };
       this.snapshot = null; this.sourceKind = null; this.latestHash = ''; this.chartRendered = false;
       this.destroyed = false; this.sequence = 0; this.inflight = null; this.pollTimer = null; this.motionTimer = null;
+      this.adviceTimer=null;this.adviceOffset=0;this.adviceItems=[];
       this.timeoutMs = finite(options.timeoutMs) ? Math.max(1000, Math.min(30000, options.timeoutMs)) : 8000;
       this.autoRefresh = options.autoRefresh !== false;
       this.elements = {
@@ -245,10 +269,20 @@
         chart: container.querySelector('#weatherChart'), tag: container.querySelector('.panel-header .tag')
       };
       this.note = container.querySelector('#weatherSourceNote, .weather-feed-note');
-      if (!this.note) { this.note = this.document.createElement('div'); this.note.className = 'weather-feed-note'; container.appendChild(this.note); }
-      this.note.classList.add('weather-feed-note');
-      this.note.setAttribute('role', 'status'); this.note.setAttribute('aria-live', 'polite');
+      if (options.showSourceNote === false) {
+        if (this.note) this.note.remove();
+        this.note = null;
+      } else {
+        if (!this.note) { this.note = this.document.createElement('div'); this.note.className = 'weather-feed-note'; container.appendChild(this.note); }
+        this.note.classList.add('weather-feed-note');
+        this.note.setAttribute('role', 'status'); this.note.setAttribute('aria-live', 'polite');
+      }
       installStyle(this.document);
+      this.adviceContainer=container.querySelector('.weather-impacts');
+      this.advicePaused=false;
+      this.pauseAdvice=()=>{this.advicePaused=true;};this.resumeAdvice=()=>{this.advicePaused=false;};
+      this.adviceContainer?.addEventListener('mouseenter',this.pauseAdvice);
+      this.adviceContainer?.addEventListener('mouseleave',this.resumeAdvice);
       let configError = '';
       try {
         if (options.persistConfig !== false) {
@@ -295,6 +329,7 @@
     }
 
     renderSourceNote() {
+      if (!this.note) return;
       if (!this.snapshot) { this.note.textContent = this.statusMessage || '暂无真实天气数据'; this.note.title = this.note.textContent; return; }
       const snapshot = this.snapshot;
       const source = snapshot.current.observedAt
@@ -360,13 +395,10 @@
       }
       renderGlyph(elements.glyph, snapshot && snapshot.current.conditionCode, this.document);
       if (elements.tag) { elements.tag.textContent = snapshot && snapshot.days.length ? '实况 · ' + snapshot.days.length + '天预报' : '预报待接入'; elements.tag.classList.remove('sample'); }
-      const rules = deriveRules(snapshot);
-      for (const key of ['demand', 'agriculture']) {
-        const element = elements[key], rule = rules[key];
-        if (!element) continue;
-        element.textContent = rule.text; element.dataset.ruleId = rule.id; element.dataset.ruleVersion = rule.version;
-        element.title = '业务规则：' + rule.condition + '\n依据：' + (rule.evidence.length ? JSON.stringify(rule.evidence) : '未触发或字段缺失') + '\n规则提示不等于销量预测或农事保证。';
-      }
+      const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+      const advice=adviceCatalog(snapshot?{...snapshot,days:snapshot.days.filter(day=>day.date>=today)}:null),hash=JSON.stringify(advice);
+      if(hash!==this.adviceHash){this.adviceHash=hash;this.adviceItems=advice;this.adviceOffset=0;this.paintAdvice();}
+      this.scheduleAdvice();
       this.container.dataset.weatherSource = sourceKind;
       this.container.dataset.weatherFetchedAt = snapshot ? snapshot.fetchedAt : '';
       this.container.dataset.weatherObservedAt = snapshot && snapshot.current.observedAt || '';
@@ -402,6 +434,35 @@
         if (config.enabled) this.refresh(); else this.setStatus('paused', '自动更新已暂停；保留最后有效天气。');
         return true;
       } catch (error) { this.setStatus('config-error', error.message + '；保留最后有效天气。'); return false; }
+    }
+
+    paintAdvice() {
+      const rows=this.adviceContainer?.children;if(!rows)return;
+      this.adviceContainer.dataset.adviceUpdatedAt=new Date().toISOString();
+      this.adviceContainer.dataset.businessDate=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+      for(let i=0;i<Math.min(2,rows.length);i++){
+        const item=this.adviceItems[(this.adviceOffset+i)%this.adviceItems.length];if(!item)continue;
+        const label=rows[i].querySelector('span'),text=rows[i].querySelector('p');
+        if(label){label.textContent=item.label;label.className='impact-label '+item.type;label.style.color=item.color;label.style.borderColor=item.color+'80';}
+        if(text){text.textContent=item.rule.text;text.dataset.ruleId=item.rule.id;text.dataset.ruleVersion=item.rule.version;
+          text.title='业务规则：'+item.rule.condition+'\n依据：'+JSON.stringify(item.rule.evidence);}
+      }
+      if(!this.reducedMotion()){this.adviceContainer.classList.remove('is-advice-changing');void this.adviceContainer.offsetWidth;this.adviceContainer.classList.add('is-advice-changing');}
+    }
+
+    scheduleAdvice() {
+      if(this.adviceTimer!==null||this.destroyed||this.options.adviceCarousel===false)return;
+      this.adviceTimer=global.setTimeout(()=>{this.adviceTimer=null;if(this.destroyed)return;
+        const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+        // Recompute against the remaining forecast, without altering its dates
+        // or claiming the upstream provider returned new weather every minute.
+        const snapshot=this.snapshot?{...this.snapshot,days:this.snapshot.days.filter(day=>day.date>=today)}:null;
+        this.adviceItems=adviceCatalog(snapshot);this.adviceHash=JSON.stringify(this.adviceItems);
+        if(!this.advicePaused){this.adviceOffset=(this.adviceOffset+2)%this.adviceItems.length;this.paintAdvice();}
+        this.adviceContainer.dataset.adviceUpdatedAt=new Date().toISOString();
+        this.adviceContainer.dataset.businessDate=today;
+        this.scheduleAdvice();
+      },60000);
     }
 
     saveConfig() {
@@ -479,6 +540,10 @@
 
     destroy() {
       this.destroyed = true; this.cancelRequest(); this.clearPoll();
+      if(this.adviceTimer!==null)global.clearTimeout(this.adviceTimer);
+      this.adviceTimer=null;
+      this.adviceContainer?.removeEventListener('mouseenter',this.pauseAdvice);
+      this.adviceContainer?.removeEventListener('mouseleave',this.resumeAdvice);
       if (this.motionTimer !== null) global.clearTimeout(this.motionTimer);
       this.motionTimer = null; this.container.classList.remove('is-weather-updating');
       if (this.configElements.save) this.configElements.save.removeEventListener('click', this.handleSave);
@@ -489,6 +554,7 @@
   WeatherFeed.normalizeEndpoint = normalizeEndpoint;
   WeatherFeed.deriveRules = deriveRules;
   WeatherFeed.chartModel = chartModel;
+  WeatherFeed.adviceCatalog = adviceCatalog;
   WeatherFeed.ruleVersion = RULE_VERSION;
   global.WeatherFeed = WeatherFeed;
 })(window);

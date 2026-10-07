@@ -1,10 +1,12 @@
-# AI决策分析接口说明 · V0.17
+# AI决策分析接口说明 · V0.32
 
 前端已就绪，当前仍使用本地规则建议。连接真实AI需要一个已部署的HTTPS代理服务；模型密钥保存在代理后端。大屏“配置→基础配置→AI决策分析”填写代理网址、勾选启用并保存即可接入。地址、开关、间隔仅保存在当前浏览器。
 
 ## 请求与返回
 
-前端对接口发送POST，Content-Type为application/json，body为`{"snapshot": {...}}`，不附带浏览器凭据或模型密钥。代理须允许大屏域名的CORS及OPTIONS预检；本地单文件预览的origin可能为null，正式使用推荐从已发布的网站发起。请求15秒后超时，默认最短间隔30秒、可配置30–300秒，只在经营数据变化时调用，最多一个请求在途。
+前端对接口发送POST，Content-Type为application/json，body为`{"snapshot": {...}, "instructions": {"businessDate": "当天日期", "adviceDate": "当天日期", "useCurrentBusinessDate": true, "preserveHistoricalEvidenceDates": true}}`，不附带浏览器凭据或模型密钥。代理须允许大屏域名的CORS及OPTIONS预检；本地单文件预览的origin可能为null，正式使用推荐从已发布的网站发起。请求15秒后超时，固定每60秒用最新汇总更新，即使没有新订单也按当日重新分析，最多一个请求在途。未配置代理时同频率生成本地规则建议。
+
+snapshot.businessDate始终为上海时区当天，sourceDate保留订单来源日期；历史样本和月度实绩截止日期不能被改成当天。返回建议的行动日期应使用instructions.adviceDate，可返回顶层businessDate用于校验；与请求当天不同的日期会被前端拒绝，回退当日本地建议。历史证据期应明确描述为历史，而不是今日实测。
 
 返回HTTP 200、Content-Type application/json：
 
