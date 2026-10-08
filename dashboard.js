@@ -4,8 +4,10 @@
   const OFFLINE_DEMO=window.QINSHUI_OFFLINE_DEMO===true;
   const YESTERDAY_SALES=49823.87;
   const BASELINE_FACTOR=.45,scaledBaseline=value=>Number.isFinite(value)?value*BASELINE_FACTOR:null;
+  const STORE_ROTATION_MS=9000;
   const initialConfig={stores:10,logistics:70,delivery:44,ontime:99.7,ontimeChange:.6,storageMetricVersion:3,sortingPieces:13000,floorStackPositions:2030,coldZoneCount:10,coldStoredTonnes:53.2,storageMetricsSource:'user-configuration',warehouse:120,warehouseUnit:'吨',cold:50,coldUnit:'吨',rankSpeed:6,storeRankSpeed:9,replaySpeed:3,q1ActualStores:null,q1ActualLogistics:null,q2ActualStores:null,q2ActualLogistics:null,q3ActualStores:null,q3ActualLogistics:null,q4ActualStores:null,q4ActualLogistics:null,octStores:5,octLogistics:8,novStandard:1,novFranchise:5,novLogistics:10,decFranchise:20,decLogistics:10,holidayWeight:2,brandCount:3,brandDaily:8600,cooperativeCount:6,sundayWeight:1.5,double11Weight:2.2,peakStart:'17:30',peakEnd:'19:10'};
   let config={...initialConfig};try{const saved=JSON.parse(localStorage.getItem('county-dashboard-prototype-v1')||'null');if(saved&&typeof saved==='object'){config={...initialConfig,...saved};if(![2,3].includes(saved.storageMetricVersion)){for(const key of ["sortingPieces","floorStackPositions","coldZoneCount","coldStoredTonnes"])config[key]=initialConfig[key];}else if(saved.storageMetricVersion===2&&Number(saved.floorStackPositions)===2050){config.floorStackPositions=2030;}config.storageMetricVersion=3;if(saved.storeRankSpeed===undefined)config.storeRankSpeed=(Number.isFinite(Number(saved.rankSpeed))&&Number(saved.rankSpeed)>0?Number(saved.rankSpeed):6)+3;}}catch{}
+  config.storeRankSpeed=STORE_ROTATION_MS/1000;
   const storageMetric=(value,integer=false)=>Number.isFinite(value)&&value>=0&&(!integer||Number.isSafeInteger(value))?String(value):'—';
   function storageCapacity(){
     const zoneCount=Number.isSafeInteger(config.coldZoneCount)&&config.coldZoneCount>=0?config.coldZoneCount:null;
@@ -34,6 +36,7 @@
   let decisionAdvice=null,decisionBatchRevision=0,weatherFeed=null,consumerMetrics=null;
   let consumerReplayRun=0,consumerReplayBatch=null,consumerReplayStep=-1;
   const lastStoreValues=new Map();let storeFlow=null,storeSourceKey=null,lastStoreRenderSignature=null,salesForecast=null;
+  let storePriorityCodes=[],storePriorityAt=null;
   const charts={}, colors={text:'#ffffff',muted:'#92a0b7',grid:'rgba(46,172,226,0.15)',cyan:'#2eace2',gold:'#ffe551',mint:'#64d6ad'};
   const chart=(id)=>charts[id]||(charts[id]=echarts.init($(id),null,{renderer:'svg'}));
   const localISO=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -266,21 +269,24 @@
     if(flowOK&&storesOK)lastSalesRenderRevision=salesRenderRevision(day);
   }
   function renderStores(v){
-    const day=dataset(),sourceKey=[state.mode,day.isToday?day.date:state.day,day.simulated?'replay':day.isToday?'actual':'historical',state.source].join(':');
-    const sameSource=storeSourceKey===sourceKey;if(!sameSource){lastStoreValues.clear();storeSourceKey=sourceKey;}
+    const day=dataset(),sourceKey=[state.mode,day.isToday?day.date:state.day,day.simulated?'replay':day.isToday?'actual':'historical',state.source,todayOrders?'imported':'prepared'].join(':');
+    const sameSource=storeSourceKey===sourceKey;if(!sameSource){lastStoreValues.clear();storePriorityCodes=[];storePriorityAt=null;storeSourceKey=sourceKey;}
     const all=DASHBOARD_DATA.stores.filter(s=>Number.isFinite(v.stores[s.code])).map(s=>({...s,value:v.stores[s.code]})).sort((a,b)=>b.value-a.value||a.code.localeCompare(b.code));
     const pinned=all.find(s=>s.code==='2001'),others=all.filter(s=>s.code!=='2001');
     const changed=all.filter(s=>lastStoreValues.has(s.code)?Math.abs(lastStoreValues.get(s.code)-s.value)>.0001:sameSource&&s.value!==0);
-    if(changed.length){
-      const code=changed.find(s=>s.code===v.events[0]?.code)?.code||changed[0].code,index=others.findIndex(s=>s.code===code);
-      const start=state.storeOffset%Math.max(1,others.length-2);
-      if(index>=0&&(index<start||index>=start+3))state.storeOffset=Math.min(Math.max(0,index-1),Math.max(0,others.length-3));
+    const changedOrdinary=new Set(changed.filter(s=>s.code!=='2001').map(s=>s.code));
+    if(changedOrdinary.size){
+      // Presentation priority follows the newest changed receipts; underlying
+      // amounts and the ordinary sales ordering remain untouched.
+      storePriorityCodes=[...new Set([...v.events.map(e=>e.code),...changed.map(s=>s.code)])].filter(code=>changedOrdinary.has(code));
+      storePriorityAt=Date.now();
     }
     const positiveCodes=changed.filter(s=>s.value>(lastStoreValues.get(s.code)??0)+.0001).map(s=>s.code);for(const s of all)lastStoreValues.set(s.code,s.value);
-    const rows=pinned?[...rankWindow(others,state.storeOffset,3),pinned]:rankWindow(all,state.storeOffset,4);state.storeRows=rows;
-    // Order arrivals/corrections move the affected store into view. An idle
-    // clock tick, repeated storage notification or configuration save must
-    // not rotate the ranking or restart chart motion with identical values.
+    const size=pinned?3:4,normal=rankWindow(others,state.storeOffset,size),priority=storePriorityCodes.map(code=>others.find(s=>s.code===code)).filter(Boolean);
+    const promoted=new Set(priority.map(s=>s.code)),ordinary=[...priority,...normal.filter(s=>!promoted.has(s.code))];
+    const rows=[...ordinary.slice(0,size),...(pinned?[pinned]:[])];state.storeRows=rows;
+    // Only the nine-second carousel or changed receipts alter presentation.
+    // Repeated data/clock notifications do not restart identical chart motion.
     const signature=JSON.stringify([sourceKey,rows.map(s=>[s.code,s.name,s.value])]);
     if(signature===lastStoreRenderSignature)return;
     const name='门店销售额',scale=StoreSalesScale,axisMax=scale.maximumAmount;
@@ -348,16 +354,21 @@
   const tickerFields=[['holidayWeight','国庆假期权重','倍',0,20,.1],['brandCount','品牌代理数','个'],['brandDaily','品牌代理日均出货','元',0,9999999,.01],['cooperativeCount','合作社数','个'],['sundayWeight','周日销售权重','倍',0,20,.1],['double11Weight','双十一权重','倍',0,20,.1]];
   const actualPlanFields=Array.from({length:3},(_,i)=>i+1).flatMap(q=>[['q'+q+'ActualStores','Q'+q+'实际新增门店','家'],['q'+q+'ActualLogistics','Q'+q+'实际新增后勤网点','个']]);
   function syncStorageValidity(){/* Zone count and stored tonnes are different units; do not compare them. */}
-  function fillConfig(values=config){const field=([key,label,unit,min=0,max=999,step=1])=>`<div class="field"><label for="cfg-${key}">${label}（${unit}）</label><input id="cfg-${key}" type="number" value="${values[key]}" required min="${min}" max="${max}" step="${step}"></div>`;$('basicFields').innerHTML=basicFields.map(field).join('')+`<div class="drawer-note storage-config-note">分拣拆整、地堆区及库区数按个计；当前存储量按吨计。库区数不能作为吨位上限，原总库容/剩余库容口径已替换。</div><div class="field"><label for="cfg-warehouseUnit">旧常温库存单位</label><select id="cfg-warehouseUnit"><option>吨</option><option>立方米</option><option>件</option></select></div><div class="field"><label for="cfg-coldUnit">旧冷链库存单位</label><select id="cfg-coldUnit"><option>吨</option><option>立方米</option><option>件</option></select></div>`;$('planFields').innerHTML=planFields.map(field).join('');$('tickerFields').innerHTML=tickerFields.map(field).join('')+`<div class="field"><label for="cfg-peakStart">预计晚高峰开始</label><input id="cfg-peakStart" type="time" required></div><div class="field"><label for="cfg-peakEnd">预计晚高峰结束</label><input id="cfg-peakEnd" type="time" required></div>`;$('cfg-peakStart').value=values.peakStart;$('cfg-peakEnd').value=values.peakEnd;$('actualPlanFields').innerHTML=actualPlanFields.map(([key,label,unit])=>`<div class="field"><label for="cfg-${key}">${label}（${unit}）</label><input id="cfg-${key}" type="number" min="0" max="999" step="1" value="${values[key]??''}" placeholder="未记录"></div>`).join('');$('cfg-warehouseUnit').value=values.warehouseUnit;$('cfg-coldUnit').value=values.coldUnit;$('cfgRankSpeed').value=values.rankSpeed;$('cfgStoreRankSpeed').value=values.storeRankSpeed;$('cfgReplaySpeed').value=values.replaySpeed;syncStorageValidity();}
+  function fillConfig(values=config){const field=([key,label,unit,min=0,max=999,step=1])=>`<div class="field"><label for="cfg-${key}">${label}（${unit}）</label><input id="cfg-${key}" type="number" value="${values[key]}" required min="${min}" max="${max}" step="${step}"></div>`;$('basicFields').innerHTML=basicFields.map(field).join('')+`<div class="drawer-note storage-config-note">分拣拆整、地堆区及库区数按个计；当前存储量按吨计。库区数不能作为吨位上限，原总库容/剩余库容口径已替换。</div><div class="field"><label for="cfg-warehouseUnit">旧常温库存单位</label><select id="cfg-warehouseUnit"><option>吨</option><option>立方米</option><option>件</option></select></div><div class="field"><label for="cfg-coldUnit">旧冷链库存单位</label><select id="cfg-coldUnit"><option>吨</option><option>立方米</option><option>件</option></select></div>`;$('planFields').innerHTML=planFields.map(field).join('');$('tickerFields').innerHTML=tickerFields.map(field).join('')+`<div class="field"><label for="cfg-peakStart">预计晚高峰开始</label><input id="cfg-peakStart" type="time" required></div><div class="field"><label for="cfg-peakEnd">预计晚高峰结束</label><input id="cfg-peakEnd" type="time" required></div>`;$('cfg-peakStart').value=values.peakStart;$('cfg-peakEnd').value=values.peakEnd;$('actualPlanFields').innerHTML=actualPlanFields.map(([key,label,unit])=>`<div class="field"><label for="cfg-${key}">${label}（${unit}）</label><input id="cfg-${key}" type="number" min="0" max="999" step="1" value="${values[key]??''}" placeholder="未记录"></div>`).join('');$('cfg-warehouseUnit').value=values.warehouseUnit;$('cfg-coldUnit').value=values.coldUnit;$('cfgRankSpeed').value=values.rankSpeed;$('cfgStoreRankSpeed').value=STORE_ROTATION_MS/1000;$('cfgReplaySpeed').value=values.replaySpeed;syncStorageValidity();}
   function openConfig(){fillConfig();pane('basic');$('configBackdrop').classList.add('open');$('closeConfig').focus();}function closeConfig(){$('configBackdrop').classList.remove('open');$('openConfig').focus();}
-  function saveConfig(){syncStorageValidity();const inputs=[...document.querySelectorAll('[id^="cfg-"]'),$('cfgRankSpeed'),$('cfgStoreRankSpeed'),$('cfgReplaySpeed')];for(const input of inputs)if(!input.checkValidity()){input.reportValidity();return;}for(const [key] of [...basicFields,...planFields,...tickerFields])config[key]=Number($('cfg-'+key).value);for(const [key] of actualPlanFields)config[key]=$('cfg-'+key).value===''?null:Number($('cfg-'+key).value);config.peakStart=$('cfg-peakStart').value;config.peakEnd=$('cfg-peakEnd').value;config.warehouseUnit=$('cfg-warehouseUnit').value;config.coldUnit=$('cfg-coldUnit').value;config.rankSpeed=Number($('cfgRankSpeed').value);config.storeRankSpeed=Number($('cfgStoreRankSpeed').value);config.replaySpeed=Number($('cfgReplaySpeed').value);config.storageMetricsSource='user-configuration';config.storageMetricVersion=3;try{localStorage.setItem('county-dashboard-prototype-v1',JSON.stringify(config));}catch{toast('当前浏览器不能保存配置，已应用到本次预览');}renderStats();renderMonitor();renderPlans();startTimers();closeConfig();toast('配置已保存到当前浏览器；其他访问者不会受影响');}
+  function saveConfig(){syncStorageValidity();const inputs=[...document.querySelectorAll('[id^="cfg-"]'),$('cfgRankSpeed'),$('cfgStoreRankSpeed'),$('cfgReplaySpeed')];for(const input of inputs)if(!input.checkValidity()){input.reportValidity();return;}for(const [key] of [...basicFields,...planFields,...tickerFields])config[key]=Number($('cfg-'+key).value);for(const [key] of actualPlanFields)config[key]=$('cfg-'+key).value===''?null:Number($('cfg-'+key).value);config.peakStart=$('cfg-peakStart').value;config.peakEnd=$('cfg-peakEnd').value;config.warehouseUnit=$('cfg-warehouseUnit').value;config.coldUnit=$('cfg-coldUnit').value;config.rankSpeed=Number($('cfgRankSpeed').value);config.storeRankSpeed=STORE_ROTATION_MS/1000;config.replaySpeed=Number($('cfgReplaySpeed').value);config.storageMetricsSource='user-configuration';config.storageMetricVersion=3;try{localStorage.setItem('county-dashboard-prototype-v1',JSON.stringify(config));}catch{toast('当前浏览器不能保存配置，已应用到本次预览');}renderStats();renderMonitor();renderPlans();startTimers();closeConfig();toast('配置已保存到当前浏览器；其他访问者不会受影响');}
   function pane(name){document.querySelectorAll('[data-pane]').forEach(b=>b.classList.toggle('active',b.dataset.pane===name));document.querySelectorAll('[data-pane-body]').forEach(b=>b.classList.toggle('active',b.dataset.paneBody===name));$('saveConfig').hidden=name!=='basic';$('resetConfig').hidden=name!=='basic';if(name==='map')fillPointList();}
-  let replayTimer,rankTimer;
+  let replayTimer,rankTimer,storeRankTimer;
   function startTimers(){
-    clearInterval(replayTimer);clearInterval(rankTimer);
+    clearInterval(replayTimer);clearInterval(rankTimer);clearInterval(storeRankTimer);
     const delay=(key,min,max)=>{const value=Number(config[key]);return (Number.isFinite(value)&&value>=min&&value<=max?value:initialConfig[key])*1000;};
     replayTimer=setInterval(()=>{if(state.playing){const day=dataset();if(day.isToday){tickSalesClock();}else if(state.mode==='demo'){const n=day.events.length;if(state.replayed<n)state.replayed++;else if(n)state.flowCursor++;state.flowTick++;renderPart('历史流水',renderStats);}}},delay('replaySpeed',1,30));
-    // Store ranking has no independent carousel timer: it changes with orders.
+    storeRankTimer=setInterval(()=>{
+      state.storeOffset++;
+      // Keep a receipt promoted when it arrives on this exact rotation tick.
+      if(storePriorityAt===null||Date.now()-storePriorityAt>=1000){storePriorityCodes=[];storePriorityAt=null;}
+      renderPart('门店排行轮播',()=>renderStores(view()));
+    },STORE_ROTATION_MS);
     rankTimer=setInterval(()=>{state.productOffset++;renderPart('商品轮播',renderProducts);},delay('rankSpeed',3,120));
   }
   function rankWindow(items,offset,size){const start=offset%Math.max(1,items.length-size+1);return items.slice(start,start+size);}

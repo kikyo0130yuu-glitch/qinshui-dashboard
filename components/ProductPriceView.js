@@ -4,7 +4,6 @@
   const finite=value=>typeof value==='number'&&Number.isFinite(value);
   const centerOf=item=>finite(item?.categoryPriceCenter)?item.categoryPriceCenter:finite(item?.priceCenter)?item.priceCenter:null;
   const yuan=value=>finite(value)?'￥'+value.toFixed(2):'--';
-  const direction=trend=>({up:'↑',up_strong:'↑↑','up-strong':'↑↑',strong_up:'↑↑',flat:'→',stable:'→',down:'↓'}[trend?.overallTrendDirection]||'');
   const defaultPolicy={pageSize:3,hiddenMiddleCategoryCodes:['1101','9999','1004'],hiddenMiddleCategoryNames:['环岛类','默认分类','默认类别','临时采购'],hideNoPriceCategories:true};
   function displayPages(data,policy={}){
     const settings={...defaultPolicy,...policy},hiddenCodes=new Set(settings.hiddenMiddleCategoryCodes),hiddenNames=new Set(settings.hiddenMiddleCategoryNames);
@@ -40,7 +39,7 @@
     const tooltip=params=>{
       const first=params.find(item=>item.seriesId==='price-center')||params[0];if(!first)return '';
       const item=items[first.dataIndex],i=first.dataIndex;if(!item)return '';
-      const future=range?`<br>未来7天需求范围：${range.min.toFixed(2)}–${range.max.toFixed(2)}（1.00为正常需求）<br>${escape(trend.overallTrendLevel||'')} ${direction(trend)} · ${escape(trend.startDate)} 至 ${escape(trend.endDate)}<br>各品类暂用同一整体需求权重`:'';
+      const future=range?`<br>未来7天需求范围：${range.min.toFixed(2)}–${range.max.toFixed(2)}（1.00为正常需求）<br>${escape(trend.startDate)} 至 ${escape(trend.endDate)}<br>各品类暂用同一整体需求权重`:'';
       return `${escape(item.middleCategoryName)}<br>成交价格重心：${yuan(prices[i])}<br>全店成交价格重心：${yuan(storeCenter)}<br>价格有效SKU：${item.priceValidSkuCount}个 · 动销SKU：${item.salesActiveSkuCount}个${future}`;
     };
     return {animationDurationUpdate:600,
@@ -53,11 +52,10 @@
         itemStyle:{color:colors.gold,borderRadius:[0,3,3,0]},label:{show:true,position:'right',distance:7,color:colors.gold,fontSize:17,
           formatter:params=>yuan(prices[params.dataIndex])},
         markPoint:{silent:true,data:annotations},
-        markLine:{silent:true,symbol:'none',label:{show:false},lineStyle:{color:'#dc7777',type:'dashed'},data:storeCenter!==null?[{xAxis:storeCenter}]:[]}},
         {id:'demand-range-start',name:'需求范围起点',type:'bar',xAxisIndex:1,stack:'demand-range',barWidth:12,data:items.map(()=>range?.min??null),itemStyle:{color:'transparent'},silent:true},
         {id:'demand-range',name:'未来7天需求范围',type:'bar',xAxisIndex:1,stack:'demand-range',barWidth:12,data:items.map(()=>range?range.max-range.min:null),
           itemStyle:{color:'rgba(194,206,222,.12)',borderColor:'#c2cede',borderWidth:1.2,borderType:'dashed'},
-          label:{show:Boolean(range),position:'right',color:'#c4d0df',fontSize:16,formatter:()=>range?`${range.min.toFixed(2)}–${range.max.toFixed(2)} · ${escape(trend.overallTrendLevel||'')} ${direction(trend)}`:''}}]
+          label:{show:Boolean(range),position:'right',color:'#c4d0df',fontSize:16,formatter:()=>range?`${range.min.toFixed(2)}–${range.max.toFixed(2)}`:''}}]
     };
   }
   return {page,displayPages,demandRange,buildOption};
