@@ -2,7 +2,14 @@
   "version": 1,
   "monthlyCap": 100,
   "requests": {
-    "2026-10": 4
+    "2026-10": 6
   },
-  "initializationBasis": "Existing local service request counts; user confirmed this is the only calling project. Account console usage not inspected."
+  "initializationBasis": "Existing local service request counts; user confirmed this is the only calling project. Account console usage not inspected.",
+  "lastResult": {
+    "runId": "37623805820:1",
+    "month": "2026-10",
+    "status": "ok",
+    "requestsMade": 2,
+    "completedAt": "2026-10-07T12:49:44.037Z"
+  }
 }
