@@ -463,7 +463,6 @@
         rows[i].dataset.priority=item.priority;
         if(text){
           text.replaceChildren();
-          const priority=this.document.createElement('span');priority.className='weather-advice-priority '+item.priority;priority.textContent=item.priority==='core'?'核心':'一般';text.append(priority);
           let offset=0;const body=item.rule.text;
           const pieces=(item.highlights||[]).filter(Boolean).map(phrase=>({phrase,index:body.indexOf(phrase)})).filter(part=>part.index>=0).sort((a,b)=>a.index-b.index);
           for(const part of pieces){if(part.index<offset)continue;text.append(this.document.createTextNode(body.slice(offset,part.index)));const strong=this.document.createElement('strong');strong.className='weather-core-highlight';strong.textContent=part.phrase;text.append(strong);offset=part.index+part.phrase.length;}

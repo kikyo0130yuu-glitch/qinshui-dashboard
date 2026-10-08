@@ -43,23 +43,23 @@
   }
   function localAdvice(snapshot) {
     if (snapshot.analysis && global.SupplyChainAnalysis) return global.SupplyChainAnalysis.narrate(snapshot.analysis);
-    const item = (type, label, level, text, emphasis, evidence, id) => ({ type, label, level, text, emphasis: emphasis || [], evidence,
+    const item = (type, label, text, emphasis, evidence, id) => ({ type, label, text, emphasis: emphasis || [], evidence,
       ruleId: id, ruleVersion, sources: [], dataQuality: snapshot.analysisError ? 'error' : 'limited' });
     const advice = [], x = snapshot;
-    if (x.analysisError) advice.push(item('data', '数据核验', '核心', '事实输入未通过校验；' + x.analysisError + '。', ['未通过校验'], [x.analysisError], 'input_validation'));
-    advice.push(item('stock', '销售态势', '核心', '当前订单销售' + money(x.salesAmount) + '、' + count(x.orderCount) + '单；按已发生交易核对销售结构。',
-      ['销售' + money(x.salesAmount)], [{ sales_amount: x.salesAmount, order_count: x.orderCount }], 'summary_sales'));
+    if (finite(x.salesAmount) && Number.isSafeInteger(x.orderCount) && x.orderCount >= 0) advice.push(item('stock', '销售态势', '当前订单销售' + money(x.salesAmount) + '、累计' + count(x.orderCount) + '单；按当前订单观察销售结构。',
+      ['销售' + money(x.salesAmount)], ['当前订单销售：' + money(x.salesAmount), '当前累计订单：' + count(x.orderCount) + '单'], 'summary_sales'));
     const top = x.topOrderStores[0];
-    if (top) advice.push(item('plan', '门店贡献', '一般', top.name + '销售' + money(top.amount) + '；按订单事实观察门店表现。', [top.name], [top], 'summary_store'));
+    if (top && finite(top.amount)) advice.push(item('plan', '门店贡献', top.name + '当前销售' + money(top.amount) + '；按当前订单观察门店贡献。', [top.name], [top.name + '当前销售：' + money(top.amount)], 'summary_store'));
     const c = x.consumerMetrics.counts, w = x.consumerMetrics.window;
     if (w.start && w.end && c.identifiedCustomers > 0 && Number.isSafeInteger(c.repeatCustomers) && c.repeatCustomers >= 0 && c.repeatCustomers <= c.identifiedCustomers
       && c.purchaseOrders >= c.identifiedCustomers + c.repeatCustomers) {
       const rate = Number((c.repeatCustomers / c.identifiedCustomers * 100).toFixed(2));
-      advice.push(item('plan', '会员活跃', '一般', '统计窗口内' + count(c.repeatCustomers) + '人多次下单，占识别会员' + count(rate) + '%；观察重复购买表现。', ['多次下单'], [{ ...c, repeatCustomerPercent: rate, window: w }], 'summary_member'));
+      advice.push(item('plan', '会员活跃', '统计窗口内' + count(c.repeatCustomers) + '人多次下单，占识别会员' + count(rate) + '%；观察重复购买表现。', ['多次下单'], ['多次下单会员：' + count(c.repeatCustomers) + '人', '多次下单会员占比：' + count(rate) + '%'], 'summary_member'));
     }
-    if (advice.length < 4) advice.push(item('data', '依据状态', '一般', '时段历史与正式分类映射待核验；当前只展示订单事实，数据不足时暂停趋势与预测。', ['只展示订单事实'], ['缺少经事实引擎校验的历史输入'], 'summary_limitations'));
     return advice.slice(0, 4);
   }
+  const presentationForbidden = /演示|回放|多日叠加|historical-order-replay|数据核验|净额/;
+  function businessAdvice(item) { return item && item.type !== 'data' && item.ruleId !== 'data_quality' && !/数据核验/.test(item.label || '') && typeof item.text === 'string' && !presentationForbidden.test(item.text); }
   function identity(snapshot) { return JSON.stringify([snapshot.businessDate, snapshot.mode, snapshot.sourceKind, snapshot.sourceVersion]); }
   function fingerprint(snapshot) {
     const analysis = snapshot.analysis;
@@ -81,7 +81,7 @@
   function installMotion() {
     if (document.getElementById('decision-advice-motion')) return;
     const style = document.createElement('style'); style.id = 'decision-advice-motion';
-    style.textContent = '.advice.is-updating{animation:decision-advice-refresh 1.2s ease-out}.advice-label .advice-level{display:block;font-size:11px;opacity:.7;line-height:1.4}.advice-body{flex:1;min-width:0;display:flex;flex-direction:column}.advice-evidence{display:block;font-size:11px;line-height:16px;margin-top:3px;cursor:pointer;color:#a7bbcc;white-space:normal}.advice-evidence summary{outline-offset:2px}.advice-evidence p{margin:4px 0;line-height:1.55}.advice-evidence[open]{max-height:90px;overflow:auto}.advice.is-updating strong{animation:decision-value-refresh 1.2s ease-out}@keyframes decision-advice-refresh{0%{background:#3fbed725}100%{background:transparent}}@keyframes decision-value-refresh{0%{color:#fff;text-shadow:0 0 12px #52daf5}100%{text-shadow:none}}@media(prefers-reduced-motion:reduce){.advice.is-updating,.advice.is-updating strong{animation:none}}';
+    style.textContent = '.advice.is-updating{animation:decision-advice-refresh 1.2s ease-out}.advice-body{flex:1;min-width:0;display:flex;flex-direction:column}.advice-evidence{display:block;font-size:11px;line-height:16px;margin-top:3px;cursor:pointer;color:#a7bbcc;white-space:normal}.advice-evidence summary{outline-offset:2px}.advice-evidence p{margin:4px 0;line-height:1.55}.advice-evidence[open]{max-height:90px;overflow:auto}.advice.is-updating strong{animation:decision-value-refresh 1.2s ease-out}@keyframes decision-advice-refresh{0%{background:#3fbed725}100%{background:transparent}}@keyframes decision-value-refresh{0%{color:#fff;text-shadow:0 0 12px #52daf5}100%{text-shadow:none}}@media(prefers-reduced-motion:reduce){.advice.is-updating,.advice.is-updating strong{animation:none}}';
     document.head.appendChild(style);
   }
   class DecisionAdvice {
@@ -140,26 +140,29 @@
       if (!this.lastAI || this.lastAI.hash !== this.latestHash) this.render(localAdvice(this.latest), 'local-rules', this.latest);
       if (!this.config.enabled || !this.config.endpoint || !this.latest.analysis) {
         const freshness = this.latest.analysis && this.latest.analysis.freshness;
-        const label = freshness && freshness.status === 'historical-replay' ? '历史订单回放' : freshness && freshness.status === 'batch' ? '日更新分析' : freshness && freshness.status === 'delayed' ? '数据延迟' : '最近更新';
+        const label = freshness && freshness.status === 'delayed' ? '数据延迟' : '当前数据';
         this.status('本地事实规则 · ' + label + ' · 每60秒生成；语言模型未配置。');
       }
       this.schedule();
     }
     render(advice, source, snapshot) {
       const fragment = document.createDocumentFragment();
-      for (const item of advice) {
+      for (const item of advice.filter(businessAdvice).slice(0, 4)) {
         const card = document.createElement('div'); card.className = 'advice is-updating'; card.dataset.source = source;
         card.dataset.ruleId = item.ruleId || ''; card.dataset.ruleVersion = item.ruleVersion || ruleVersion;
         if (item.analysisId) card.dataset.analysisId = item.analysisId;
         card.title = (source === 'ai' ? '语言模型解读' : source === 'remote-rules' ? '远端事实规则' : '本地事实规则') + ' · ' + snapshot.updatedAt;
         const label = document.createElement('span'); label.className = 'advice-label ' + item.type; label.appendChild(document.createTextNode(item.label));
-        const level = document.createElement('span'); level.className = 'advice-level'; level.textContent = item.level || '一般'; label.appendChild(level);
         const text = document.createElement('span'); text.className = 'advice-text'; appendEmphasis(text, item.text, item.emphasis);
         const body = document.createElement('div'); body.className = 'advice-body'; body.appendChild(text); card.append(label, body);
         const evidence = document.createElement('details'); evidence.className = 'advice-evidence';
         const toggle = document.createElement('summary'); toggle.textContent = '查看依据'; evidence.appendChild(toggle);
-        for (const row of item.evidence || []) { const paragraph = document.createElement('p'); paragraph.textContent = typeof row === 'string' ? row : JSON.stringify(row); evidence.appendChild(paragraph); }
-        const state = document.createElement('p'); state.textContent = '数据状态：' + (item.dataQuality || 'limited') + '；来源：' + (item.freshness || snapshot.sourceKind || '待核验'); evidence.appendChild(state);
+        const insight = snapshot.analysis && snapshot.analysis.insights.find(row => row.analysis_id === item.analysisId);
+        const evidenceRows = insight && global.SupplyChainAnalysis ? global.SupplyChainAnalysis.presentationEvidence(insight, snapshot.analysis) : item.evidence || [];
+        for (const row of evidenceRows) {
+          if (typeof row !== 'string' || presentationForbidden.test(row)) continue;
+          const paragraph = document.createElement('p'); paragraph.textContent = row; evidence.appendChild(paragraph);
+        }
         body.appendChild(evidence); fragment.appendChild(card);
       }
       this.container.replaceChildren(fragment); this.container.dataset.analysisSource = source; this.container.dataset.updatedAt = snapshot.updatedAt;
@@ -182,7 +185,7 @@
         const call = (async () => {
           // IDs, metrics and evidence only. This object contains no original order/customer records.
           const response = await global.fetch(this.config.endpoint, { method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ schemaVersion: ruleVersion, analysis: global.SupplyChainAnalysis.proxyContext(snapshot.analysis), instructions: { selectEvidenceOnly: true, requireAnalysisId: true,
+            body: JSON.stringify({ schemaVersion: ruleVersion, analysis: global.SupplyChainAnalysis.proxyContext(snapshot.analysis), instructions: { selectEvidenceOnly: true, requireAnalysisId: true, businessAnalysisOnly: true, noDataQualityCards: true, noPresentationSourceLabels: true,
               noNewNumbers: true, noCausalClaims: true, noInventoryOrMarginClaims: true, includeDatesOnlyWhenNeeded: true, forbidTerm: '净额' } }), ...(controller ? { signal: controller.signal } : {}) });
           if (!response.ok) throw new Error('分析代理返回HTTP ' + response.status);
           const type = response.headers && response.headers.get ? response.headers.get('content-type') : '';

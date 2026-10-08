@@ -269,10 +269,10 @@
     $('productCategoryTitle').textContent=current?.bigCategoryName||'暂无有效价格数据';
     $('productPageNumber').textContent=current?current.page+'/'+current.pageCount:'';
     chart('productChart').setOption(ProductPriceView.buildOption(current,trend,colors),true);
-    $('productLegendBase').textContent='中类价格指数';
-    $('productRangeLegend').textContent='未来7天整体需求 · '+trend.overallTrendLevel;
+    $('productLegendBase').textContent='实算价格指数 · 上轴';
+    $('productRangeLegend').textContent='7天需求指数范围 · 下轴';
     $('productCenterLegend').hidden=false;
-    $('productChart').setAttribute('aria-label',`${current?.bigCategoryName||'无数据'}真实中类成交价格指数，全店成交价格重心${data.store.storePriceCenter.toFixed(2)}元，基准100；未来7天整体需求趋势`);
+    $('productChart').setAttribute('aria-label',`${current?.bigCategoryName||'无数据'}真实中类成交价格指数，全店成交价格重心${data.store.storePriceCenter.toFixed(2)}元，基准100；下方虚框为未来7天需求指数最小至最大范围`);
   }
   function renderRadar(){
     chart('radarChart').setOption(ConsumerVisuals.decorateRadarOption({animation:false,legend:{orient:'vertical',right:2,top:'center',textStyle:{color:colors.muted,fontSize:17},itemWidth:17,itemHeight:10},radar:{center:['40%','47%'],radius:'58%',indicator:['消费频次','购物篮大小','生鲜偏好','价格敏感度','复购意愿','晚间消费'].map(name=>({name,max:100})),axisName:{color:colors.text,fontSize:17},splitLine:{lineStyle:{color:colors.grid}},splitArea:{show:false},axisLine:{lineStyle:{color:colors.grid}}},series:[{type:'radar',symbolSize:5,data:[{name:'门店客群',value:[76,61,89,64,72,81],lineStyle:{color:colors.gold,width:3},itemStyle:{color:colors.gold},areaStyle:{color:colors.gold,opacity:.1}},{name:'后勤单位客群',value:[61,80,55,76,65,41],lineStyle:{color:colors.cyan,type:'dashed',width:3},itemStyle:{color:colors.cyan},areaStyle:{color:colors.cyan,opacity:.06}}]}]}),true);

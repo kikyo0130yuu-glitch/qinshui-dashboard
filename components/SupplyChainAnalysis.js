@@ -353,33 +353,45 @@
       metrics: stats, stores, categories, products, time_buckets: timeBuckets, forecast, insights,
       disabled_conclusions: ['缺货判断', '补货数量', '采购数量', '库存健康', '库存滞销', '临期风险', '供应商履约', '配送准时率', '毛利', '天气数字归因', '价格弹性'] };
   }
+  // Presentation evidence is generated from computed business metrics. Full audit evidence stays in Insight JSON.
+  function presentationEvidence(insight, analysis) {
+    const labels = {
+      sales_amount: '当前订单销售', order_count: '当前累计订单', aov: '当前客单价',
+      sales_share_pct: '销售份额', price_center: 'SKU成交均价中位数', price_index: '成交价格指数',
+      order_coverage: '订单覆盖', store_coverage: '门店覆盖', bucket_sales_amount: '时段销售', bucket_order_count: '时段订单',
+      identified_customers: '统计窗口内识别会员', purchase_orders: '会员购买订单', repeat_customers: '多次下单会员',
+      repeat_customer_pct: '多次下单会员占比', temperature_celsius: '当前气温', category_heat_index: '品类热度指数'
+    };
+    const currency = new Set(['sales_amount', 'aov', 'price_center', 'bucket_sales_amount']);
+    const units = { order_count: '单', order_coverage: '单', store_coverage: '家', bucket_order_count: '单', identified_customers: '人', purchase_orders: '单', repeat_customers: '人', sales_share_pct: '%', repeat_customer_pct: '%', temperature_celsius: '℃' };
+    return (insight.metrics || []).filter(row => labels[row.name] && numeric(row.current)).map(row => labels[row.name] + '：' + (currency.has(row.name) ? money(row.current) : count(row.current) + (units[row.name] || '')));
+  }
   function narrate(analysis) {
     const rows = analysis.insights || [], core = rows.find(x => x.signal_type === 'sales_overview'), advice = [];
-    const create = (insight, type, label, level, text, emphasis) => ({ type, label, level, text, emphasis: emphasis || [],
-      analysisId: insight.analysis_id, ruleId: insight.signal_type, ruleVersion: analysis.schema_version, evidence: insight.evidence,
-      metrics: insight.metrics, sources: [], dataQuality: insight.data_quality.status, freshness: insight.freshness.status });
-    const quality = rows.find(x => x.signal_type === 'data_quality');
-    if (quality) { const counts = analysis.data_quality.counts;
-      const issue = counts.mainDetailAmountMismatch ? count(counts.mainDetailAmountMismatch) + '单主从金额不一致' : counts.ordersWithoutDetails ? count(counts.ordersWithoutDetails) + '单缺少明细' : counts.unmappedCategoryLines ? count(counts.unmappedCategoryLines) + '条明细尚未正式归类' : counts.amountQuantitySignMismatch ? count(counts.amountQuantitySignMismatch) + '行金额与数量方向不一致，已排除成交价计算' : quality.evidence[0];
-      advice.push(create(quality, 'data', '数据核验', '核心', issue + '；先核验来源与口径，再判断品类变化。', ['先核验来源与口径'])); }
+    const create = (insight, type, label, text, emphasis) => ({ type, label, text, emphasis: emphasis || [],
+      analysisId: insight.analysis_id, ruleId: insight.signal_type, ruleVersion: analysis.schema_version,
+      evidence: presentationEvidence(insight, analysis), metrics: insight.metrics, sources: [],
+      dataQuality: insight.data_quality.status, freshness: insight.freshness.status });
     if (core) {
-      const x = analysis.metrics, source = analysis.source.kind === 'historical-order-replay' ? '当前已回放' : '当前已发生';
-      const limitation = analysis.history.complete_days < analysis.configuration.minimum_history_days ? '完整时段历史不足' + analysis.configuration.minimum_history_days + '天，暂不预测。' : !analysis.history.comparison_aligned ? '多日叠加回放，暂不与单日比较或预测。' : analysis.freshness.status === 'delayed' ? '订单数据延迟，先核验同步。' : '按订单结构观察门店销售。';
-      advice.push(create(core, 'stock', '销售态势', '核心', source + '销售' + money(x.sales_amount) + '、' + count(x.order_count) + '单，客单价' + money(x.aov) + '；' + limitation, ['销售' + money(x.sales_amount)]));
+      const x = analysis.metrics, orderMetrics = x.order_count > 0 && numeric(x.aov) ? '，客单价' + money(x.aov) : '';
+      advice.push(create(core, 'stock', '销售态势', '当前订单销售' + money(x.sales_amount) + '、累计' + count(x.order_count) + '单' + orderMetrics + '；按当前订单观察销售结构。', ['销售' + money(x.sales_amount)]));
     }
-    const member = rows.find(x => x.signal_type === 'member_repeat_observed'), topStore = analysis.stores[0];
-    if (member) {
-      const x = Object.fromEntries(member.metrics.map(x => [x.name, x.current]));
-      advice.push(create(member, 'plan', '会员活跃', '一般', '统计窗口内识别会员' + count(x.identified_customers) + '人，' + count(x.repeat_customers) + '人多次下单（' + count(x.repeat_customer_pct) + '%）；观察重复购买表现。', ['多次下单']));
-    } else if (topStore) {
+    const topStore = (analysis.stores || [])[0];
+    if (topStore) {
       const store = rows.find(x => x.scope.type === 'store' && x.scope.id === topStore.id);
-      advice.push(create(store, 'plan', '门店贡献', '一般', topStore.name + '当前销售' + money(topStore.sales_amount) + '、' + count(topStore.order_count) + '单；按已发生订单核对门店表现。', [topStore.name]));
+      if (store) advice.push(create(store, 'plan', '门店贡献', topStore.name + '当前销售' + money(topStore.sales_amount) + '、累计' + count(topStore.order_count) + '单；按当前订单观察门店贡献。', [topStore.name]));
     }
-    const category = analysis.categories.find(x => x.category_verified), categoryInsight = category && rows.find(x => x.scope.type === 'category' && x.scope.id === category.id);
-    const peak = rows.find(x => x.signal_type === 'observed_time_peak'), weather = rows.find(x => x.signal_type === 'weather_context');
-    if (categoryInsight) advice.push(create(categoryInsight, 'forecast', '商品结构', '一般', category.name + '当前成交' + money(category.sales_amount) + '，覆盖' + count(category.order_coverage) + '单；按正式分类观察销售结构。', [category.name]));
-    else if (peak) advice.push(create(peak, 'forecast', '时段观察', '一般', peak.evidence[0] + '；按已发生时段观察服务配置。', ['已发生时段']));
-    else if (weather) advice.push(create(weather, 'forecast', '天气观察', '一般', weather.evidence.join('；') + '。', ['天气数据待更新']));
+    // Main/detail inconsistencies still suppress item conclusions even when the quality panel is hidden.
+    const category = analysis.data_quality.status !== 'error' && (analysis.categories || []).find(x => x.category_verified);
+    const categoryInsight = category && rows.find(x => x.scope.type === 'category' && x.scope.id === category.id);
+    if (categoryInsight) advice.push(create(categoryInsight, 'forecast', '商品结构', category.name + '当前成交' + money(category.sales_amount) + '，覆盖' + count(category.order_coverage) + '单；按商品分类观察销售结构。', [category.name]));
+    const member = rows.find(x => x.signal_type === 'member_repeat_observed');
+    if (member) {
+      const x = Object.fromEntries(member.metrics.map(row => [row.name, row.current]));
+      advice.push(create(member, 'plan', '会员活跃', '统计窗口内识别会员' + count(x.identified_customers) + '人，' + count(x.repeat_customers) + '人多次下单（' + count(x.repeat_customer_pct) + '%）；观察重复购买表现。', ['多次下单']));
+    }
+    const peak = rows.find(x => x.signal_type === 'observed_time_peak');
+    if (peak && advice.length < 4) advice.push(create(peak, 'forecast', '时段观察', peak.evidence[0] + '；按当前时段观察门店服务。', ['时段观察']));
     return advice.slice(0, 4);
   }
   // A fact-only proxy contract: the remote model selects an insight and evidence; it cannot insert new claims.
@@ -388,24 +400,25 @@
     const allowed = new Map(analysis.insights.map(x => [x.analysis_id, x]));
     return payload.advice.map(item => {
       const insight = item && allowed.get(item.analysisId);
+      if (item && item.type === 'data' || insight && insight.signal_type === 'data_quality') throw new Error('分析代理须返回业务分析');
       if (!insight || typeof item.text !== 'string' || !item.text.trim() || item.text.length > 180 || !['stock', 'data', 'plan', 'forecast'].includes(item.type)) throw new Error('建议须引用当前分析事实ID');
       const text = item.text.trim();
-      if (/净额|导致|保证|缺货|补货|采购量|毛利|准时率|库存健康|滞销|弹性|新注册|会员姓名|<[^>]*>/.test(text)) throw new Error('建议包含未授权结论或格式');
+      if (/演示|回放|多日叠加|数据核验|净额|导致|保证|缺货|补货|采购量|毛利|准时率|库存健康|滞销|弹性|新注册|会员姓名|<[^>]*>/.test(text)) throw new Error('建议包含未授权结论或格式');
       // Free rewriting cannot be proved factual in a browser. Exact evidence selection is verifiable and fails closed.
       const candidates = [...insight.evidence, ...insight.recommendations];
       if (!candidates.includes(text)) throw new Error('远程文案未与结构化证据一致');
       const labels = { stock: '销售态势', data: '数据核验', plan: '经营观察', forecast: '时段观察' };
-      return { type: item.type, label: labels[item.type], level: insight.severity === 'critical' || insight.severity === 'warning' ? '核心' : '一般', text,
+      return { type: item.type, label: labels[item.type], text,
         emphasis: [], analysisId: insight.analysis_id, ruleId: insight.signal_type, ruleVersion: analysis.schema_version,
-        evidence: insight.evidence, metrics: insight.metrics, sources: [], dataQuality: insight.data_quality.status, freshness: insight.freshness.status };
+        evidence: presentationEvidence(insight, analysis), metrics: insight.metrics, sources: [], dataQuality: insight.data_quality.status, freshness: insight.freshness.status };
     });
   }
   function proxyContext(analysis) {
-    const selected = analysis.insights.filter(x => x.scope.type === 'global');
+    const selected = analysis.insights.filter(x => x.scope.type === 'global' && !['data_quality', 'warehouse_configuration'].includes(x.signal_type));
     for (const type of ['store', 'category', 'sku']) selected.push(...analysis.insights.filter(x => x.scope.type === type).slice(0, 3));
     return { schema_version: analysis.schema_version, generated_at: analysis.generated_at, business_date: analysis.business_date, source: analysis.source, freshness: analysis.freshness, data_quality: analysis.data_quality, history: analysis.history, capabilities: analysis.capabilities, metrics: analysis.metrics, forecast: analysis.forecast, insights: selected, disabled_conclusions: analysis.disabled_conclusions };
   }
-  const API = { defaults: DEFAULTS, analyze, narrate, validateNarration, proxyContext, config };
+  const API = { defaults: DEFAULTS, analyze, narrate, validateNarration, proxyContext, presentationEvidence, config };
   global.SupplyChainAnalysis = API;
   if (typeof module === 'object' && module.exports) module.exports = API;
 })(typeof window === 'object' ? window : globalThis);
