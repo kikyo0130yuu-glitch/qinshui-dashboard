@@ -33,7 +33,7 @@
   const monthWeights=[1,1.2,1.3,1.1,1.16,1.4,1.6];
   let decisionAdvice=null,decisionBatchRevision=0,weatherFeed=null,consumerMetrics=null;
   let consumerReplayRun=0,consumerReplayBatch=null,consumerReplayStep=-1;
-  const lastStoreValues=new Map();let storeFlow=null,storeSourceKey=null,salesForecast=null;
+  const lastStoreValues=new Map();let storeFlow=null,storeSourceKey=null,lastStoreRenderSignature=null,salesForecast=null;
   const charts={}, colors={text:'#ffffff',muted:'#92a0b7',grid:'rgba(46,172,226,0.15)',cyan:'#2eace2',gold:'#ffe551',mint:'#64d6ad'};
   const chart=(id)=>charts[id]||(charts[id]=echarts.init($(id),null,{renderer:'svg'}));
   const localISO=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -105,8 +105,10 @@
   }
   function applyTodayOrderBatch(batch){
     if(batch!==null&&!OrderBatchSync.valid(batch,localISO(),DASHBOARD_DATA.stores)){toast('订单与明细校验未通过，保留当前销售数据');return;}
+    const sameContext=state.source==='prepared'&&(batch===null?todayOrders===null:todayOrders&&batch.date===todayOrders.date
+      &&(batch.mode||'actual')===(todayOrders.mode||'actual'));
     saveSalesProgress();todayOrders=batch;currentTimeSelection=null;lastSalesRenderRevision=null;decisionBatchRevision++;
-    state.source='prepared';restoreSalesProgress();state.playing=true;state.storeOffset=0;renderStats();consumerMetrics?.refresh();
+    state.source='prepared';restoreSalesProgress();state.playing=true;if(!sameContext)state.storeOffset=0;renderStats();consumerMetrics?.refresh();
   }
   function syncStorageData(event){
     if(event.key===TODAY_ORDER_KEY||event.key===null){
@@ -276,6 +278,11 @@
     }
     const positiveCodes=changed.filter(s=>s.value>(lastStoreValues.get(s.code)??0)+.0001).map(s=>s.code);for(const s of all)lastStoreValues.set(s.code,s.value);
     const rows=pinned?[...rankWindow(others,state.storeOffset,3),pinned]:rankWindow(all,state.storeOffset,4);state.storeRows=rows;
+    // Order arrivals/corrections move the affected store into view. An idle
+    // clock tick, repeated storage notification or configuration save must
+    // not rotate the ranking or restart chart motion with identical values.
+    const signature=JSON.stringify([sourceKey,rows.map(s=>[s.code,s.name,s.value])]);
+    if(signature===lastStoreRenderSignature)return;
     const name='门店销售额',scale=StoreSalesScale,axisMax=scale.maximumAmount;
     chart('storeChart').setOption({
       animationDuration:800,animationDurationUpdate:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?0:1000,animationEasingUpdate:'cubicOut',grid:{left:206,right:138,top:20,bottom:55},tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:params=>{const row=params[0]?.data;return row?params[0].name+'<br>门店销售额：¥'+money(row.actualValue):'';}},legend:{show:false},
@@ -289,6 +296,7 @@
         label:{show:true,position:'right',fontSize:22,color:colors.cyan,formatter:p=>'¥'+shortMoney(p.data.actualValue)}}]
     },false);
     renderPart('门店光条动效',()=>storeFlow?.update({rows,positiveCodes,changedCodes:changed.map(s=>s.code),sourceKey}));
+    lastStoreRenderSignature=signature;
   }
   function setMode(mode){saveSalesProgress();state.mode=mode;restoreSalesProgress();state.storeOffset=0;$('demoMode').classList.toggle('active',mode==='demo');$('realMode').classList.toggle('active',mode==='real');$('demoMode').setAttribute('aria-pressed',String(mode==='demo'));$('realMode').setAttribute('aria-pressed',String(mode==='real'));renderStats();}
   function renderMonitor(){
@@ -344,12 +352,12 @@
   function openConfig(){fillConfig();pane('basic');$('configBackdrop').classList.add('open');$('closeConfig').focus();}function closeConfig(){$('configBackdrop').classList.remove('open');$('openConfig').focus();}
   function saveConfig(){syncStorageValidity();const inputs=[...document.querySelectorAll('[id^="cfg-"]'),$('cfgRankSpeed'),$('cfgStoreRankSpeed'),$('cfgReplaySpeed')];for(const input of inputs)if(!input.checkValidity()){input.reportValidity();return;}for(const [key] of [...basicFields,...planFields,...tickerFields])config[key]=Number($('cfg-'+key).value);for(const [key] of actualPlanFields)config[key]=$('cfg-'+key).value===''?null:Number($('cfg-'+key).value);config.peakStart=$('cfg-peakStart').value;config.peakEnd=$('cfg-peakEnd').value;config.warehouseUnit=$('cfg-warehouseUnit').value;config.coldUnit=$('cfg-coldUnit').value;config.rankSpeed=Number($('cfgRankSpeed').value);config.storeRankSpeed=Number($('cfgStoreRankSpeed').value);config.replaySpeed=Number($('cfgReplaySpeed').value);config.storageMetricsSource='user-configuration';config.storageMetricVersion=3;try{localStorage.setItem('county-dashboard-prototype-v1',JSON.stringify(config));}catch{toast('当前浏览器不能保存配置，已应用到本次预览');}renderStats();renderMonitor();renderPlans();startTimers();closeConfig();toast('配置已保存到当前浏览器；其他访问者不会受影响');}
   function pane(name){document.querySelectorAll('[data-pane]').forEach(b=>b.classList.toggle('active',b.dataset.pane===name));document.querySelectorAll('[data-pane-body]').forEach(b=>b.classList.toggle('active',b.dataset.paneBody===name));$('saveConfig').hidden=name!=='basic';$('resetConfig').hidden=name!=='basic';if(name==='map')fillPointList();}
-  let replayTimer,rankTimer,storeRankTimer;
+  let replayTimer,rankTimer;
   function startTimers(){
-    clearInterval(replayTimer);clearInterval(rankTimer);clearInterval(storeRankTimer);
+    clearInterval(replayTimer);clearInterval(rankTimer);
     const delay=(key,min,max)=>{const value=Number(config[key]);return (Number.isFinite(value)&&value>=min&&value<=max?value:initialConfig[key])*1000;};
     replayTimer=setInterval(()=>{if(state.playing){const day=dataset();if(day.isToday){tickSalesClock();}else if(state.mode==='demo'){const n=day.events.length;if(state.replayed<n)state.replayed++;else if(n)state.flowCursor++;state.flowTick++;renderPart('历史流水',renderStats);}}},delay('replaySpeed',1,30));
-    storeRankTimer=setInterval(()=>{state.storeOffset++;renderPart('门店排行轮播',()=>renderStores(view()));},delay('storeRankSpeed',3,180));
+    // Store ranking has no independent carousel timer: it changes with orders.
     rankTimer=setInterval(()=>{state.productOffset++;renderPart('商品轮播',renderProducts);},delay('rankSpeed',3,120));
   }
   function rankWindow(items,offset,size){const start=offset%Math.max(1,items.length-size+1);return items.slice(start,start+size);}
