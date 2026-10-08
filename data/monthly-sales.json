@@ -1,6 +1,6 @@
 {
   "source": "user-provided",
-  "providedAt": "2026-10-07",
+  "providedAt": "2026-10-08",
   "currency": "CNY",
   "year": 2026,
   "scope": "门店与后勤合计销售额",
@@ -59,7 +59,7 @@
     {
       "month": "2026-10",
       "actualSalesCny": 183088.28,
-      "estimatedSalesCny": 1826500,
+      "estimatedSalesCny": 2002000,
       "actualPeriodEnd": "2026-10-05",
       "partial": true,
       "estimateAdjustment": {
@@ -83,29 +83,43 @@
           "previousEstimatedSalesCny": 1512600,
           "estimatedSalesCny": 2002600,
           "revisedAt": "2026-10-06"
+        },
+        {
+          "source": "user-request",
+          "previousEstimatedSalesCny": 2002600,
+          "estimatedSalesCny": 1826500,
+          "revisedAt": "2026-10-07"
         }
       ],
       "estimateRevision": {
         "source": "user-request",
-        "previousEstimatedSalesCny": 2002600,
-        "estimatedSalesCny": 1826500,
-        "revisedAt": "2026-10-07"
+        "previousEstimatedSalesCny": 1826500,
+        "estimatedSalesCny": 2002000,
+        "revisedAt": "2026-10-08"
       }
     }
   ],
   "futureEstimates": [
     {
       "month": "2026-11",
-      "estimatedSalesCny": 2162600,
+      "estimatedSalesCny": 2205600,
       "source": "user-provided-forecast",
-      "configuredAt": "2026-10-07",
-      "guidance": "用户明确指定216.26万元",
+      "configuredAt": "2026-10-08",
+      "guidance": "用户明确指定220.56万元",
       "estimateRevision": {
         "source": "user-request",
-        "previousEstimatedSalesCny": 2020000,
-        "estimatedSalesCny": 2162600,
-        "revisedAt": "2026-10-07"
-      }
+        "previousEstimatedSalesCny": 2162600,
+        "estimatedSalesCny": 2205600,
+        "revisedAt": "2026-10-08"
+      },
+      "estimateRevisionHistory": [
+        {
+          "source": "user-request",
+          "previousEstimatedSalesCny": 2020000,
+          "estimatedSalesCny": 2162600,
+          "revisedAt": "2026-10-07"
+        }
+      ]
     },
     {
       "month": "2026-12",

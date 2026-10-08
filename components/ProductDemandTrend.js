@@ -1,0 +1,154 @@
+/* Config-driven demand arithmetic. No sales values or event dates live here. */
+(function (root, factory) {
+  'use strict';
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  if (root) root.ProductDemandTrend = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+
+  function isFiniteWeight(value) {
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+  }
+
+  function validDateString(value) {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const time = Date.parse(value + 'T00:00:00Z');
+    return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
+  }
+
+  function getShanghaiDate(now) {
+    if (validDateString(now)) return now;
+    if (typeof now === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(now)) {
+      throw new RangeError('Invalid business date');
+    }
+    const instant = now === undefined ? new Date() : new Date(now);
+    if (!Number.isFinite(instant.getTime())) throw new RangeError('Invalid reference date');
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(instant);
+    const values = Object.fromEntries(parts.map(p => [p.type, p.value]));
+    return values.year + '-' + values.month + '-' + values.day;
+  }
+
+  function addDays(dateString, count) {
+    if (!validDateString(dateString) || !Number.isInteger(count)) throw new RangeError('Invalid natural day offset');
+    const date = new Date(dateString + 'T00:00:00Z');
+    date.setUTCDate(date.getUTCDate() + count);
+    return date.toISOString().slice(0, 10);
+  }
+
+  function validateParameters(config) {
+    if (!config || config.timeZone !== 'Asia/Shanghai') throw new TypeError('Asia/Shanghai weight configuration required');
+    const factors = config.factors || {};
+    for (const name of ['monthFactor', 'weekdayFactor', 'holidayFactor']) {
+      if (!isFiniteWeight(factors[name])) throw new TypeError('Missing or invalid factor: ' + name);
+    }
+    const limits = config.demandIndexLimits || {};
+    if (!isFiniteWeight(limits.min) || !isFiniteWeight(limits.max) || limits.min > limits.max) {
+      throw new TypeError('Invalid configured demand limits');
+    }
+    if (!isFiniteWeight(config.fallbackWeight) || !isFiniteWeight(config.normalHolidayWeight)) {
+      throw new TypeError('Configured fallback and normal holiday weights required');
+    }
+    if (!Array.isArray(config.trendLevels) || !config.trendLevels.length ||
+      config.trendLevels.some(t => !t || typeof t.label !== 'string' || (t.min !== null && !isFiniteWeight(t.min))) ||
+      config.trendLevels[config.trendLevels.length - 1].min !== null) {
+      throw new TypeError('Configured trend thresholds required');
+    }
+    const bounds = config.trendLevels.filter(t => t.min !== null).map(t => t.min);
+    if (bounds.some((v, i) => i && v >= bounds[i - 1])) throw new TypeError('Trend thresholds must be descending');
+  }
+
+  function classifyDemandTrend(index, config) {
+    if (typeof index !== 'number' || !Number.isFinite(index)) return null;
+    const levels = config && config.trendLevels;
+    if (!Array.isArray(levels)) throw new TypeError('Configured trend thresholds required');
+    const level = levels.find(t => t.min === null || index >= t.min);
+    return level ? level.label : null;
+  }
+
+  function calcDemandIndex(weights, config) {
+    validateParameters(config);
+    for (const name of ['monthWeight', 'weekdayWeight', 'holidayWeight']) {
+      if (!isFiniteWeight(weights[name])) throw new TypeError('Invalid resolved weight: ' + name);
+    }
+    const f = config.factors;
+    const raw = Number((1 + f.monthFactor * (weights.monthWeight - 1)
+      + f.weekdayFactor * (weights.weekdayWeight - 1)
+      + f.holidayFactor * (weights.holidayWeight - 1)).toFixed(12));
+    const value = Number(Math.max(config.demandIndexLimits.min,
+      Math.min(config.demandIndexLimits.max, raw)).toFixed(12));
+    return { rawDemandIndex: raw, demandIndex: value, isClamped: raw !== value,
+      trendLevel: classifyDemandTrend(value, config) };
+  }
+
+  function getWeightForDate(dateString, config) {
+    validateParameters(config);
+    if (!validDateString(dateString)) throw new RangeError('Invalid business date');
+    const d = new Date(dateString + 'T00:00:00Z');
+    const month = d.getUTCMonth() + 1, weekday = d.getUTCDay(), year = d.getUTCFullYear();
+    const missing = [], warnings = [];
+    function resolve(record, factor) {
+      if (record && isFiniteWeight(record.weight)) return record.weight;
+      const flag = { code: 'MISSING_WEIGHT', factor: factor, date: dateString,
+        fallbackWeight: config.fallbackWeight };
+      missing.push(flag);
+      return config.fallbackWeight;
+    }
+    const monthWeight = resolve(config.months && config.months[String(month)], 'month');
+    const weekdayRecord = config.weekdays && config.weekdays[String(weekday)];
+    const weekdayWeight = resolve(weekdayRecord, 'weekday');
+    const holidays = Array.isArray(config.holidays) ? config.holidays : [];
+    const matches = [];
+    for (const event of holidays) {
+      if (!event || !validDateString(event.start) || !validDateString(event.end) || event.start > event.end) {
+        warnings.push({ code: 'INVALID_HOLIDAY_EVENT', date: dateString, name: event && event.name });
+      } else if (event.start <= dateString && dateString <= event.end) matches.push(event);
+    }
+    let holidayWeight;
+    if (matches.length) {
+      if (config.overlappingHolidayPolicy !== 'max') throw new TypeError('Configured max overlap policy required');
+      holidayWeight = Math.max(...matches.map(event => resolve(event, 'holiday')));
+      if (matches.length > 1) warnings.push({ code: 'OVERLAPPING_HOLIDAY_EVENTS', date: dateString,
+        policy: config.overlappingHolidayPolicy, names: matches.map(e => e.name) });
+    } else if (!Array.isArray(config.holidays) || !Array.isArray(config.holidayCoverageYears)
+      || !config.holidayCoverageYears.includes(year)) {
+      missing.push({ code: 'MISSING_HOLIDAY_COVERAGE', factor: 'holiday', date: dateString,
+        fallbackWeight: config.fallbackWeight });
+      holidayWeight = config.fallbackWeight;
+    } else {
+      holidayWeight = config.normalHolidayWeight;
+    }
+    return { date: dateString, month: month, weekday: weekday,
+      weekdayName: weekdayRecord ? weekdayRecord.name : null,
+      monthWeight: monthWeight, weekdayWeight: weekdayWeight, holidayWeight: holidayWeight,
+      holidayNames: matches.map(e => e.name), missingWeights: missing,
+      hasMissingWeight: missing.length > 0, warnings: warnings };
+  }
+
+  function calculateNext7Days(config, now) {
+    validateParameters(config);
+    if (!Number.isInteger(config.futureDays) || config.futureDays !== 7 ||
+      !Number.isInteger(config.startOffsetDays)) throw new TypeError('Configured seven-day window required');
+    const asOfDate = getShanghaiDate(now);
+    const days = Array.from({ length: config.futureDays }, (_, i) => {
+      const weights = getWeightForDate(addDays(asOfDate, config.startOffsetDays + i), config);
+      return Object.assign({}, weights, calcDemandIndex(weights, config));
+    });
+    const missingWeightCount = days.reduce((sum, day) => sum + day.missingWeights.length, 0);
+    const warnings = days.flatMap(day => day.missingWeights.concat(day.warnings));
+    const overallDemandIndex = Number((days.reduce((sum, day) => sum + day.demandIndex, 0) / days.length).toFixed(12));
+    return { asOfDate: asOfDate, timeZone: config.timeZone,
+      startDate: days[0].date, endDate: days[days.length - 1].date,
+      days: days, next7Days: days, missingWeightCount: missingWeightCount,
+      hasMissingWeight: missingWeightCount > 0, warnings: warnings,
+      overallDemandIndex: overallDemandIndex,
+      overallTrendLevel: classifyDemandTrend(overallDemandIndex, config),
+      categorySpecificWeights: config.categorySpecificWeights === true,
+      scopeNote: config.scopeNote || null };
+  }
+
+  return Object.freeze({ getShanghaiDate, addDays, getWeightForDate,
+    calcDemandIndex, classifyDemandTrend, calculateNext7Days });
+});

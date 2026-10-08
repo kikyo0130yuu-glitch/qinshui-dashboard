@@ -8,9 +8,9 @@
     "configurationSource": "user-configuration",
     "userAuthorized": true,
     "anchorMonth": "2026-10",
-    "anchorSalesCny": 1826500,
+    "anchorSalesCny": 2002000,
     "anchorSource": "user-request",
-    "asOfDate": "2026-10-07",
+    "asOfDate": "2026-10-08",
     "observedThrough": "2026-10-05",
     "horizonMonths": 3,
     "fittedModel": false,
@@ -20,7 +20,7 @@
   },
   "currentMonth": {
     "month": "2026-10",
-    "pointSalesCny": 1826500,
+    "pointSalesCny": 2002000,
     "type": "configured-current-month-projection",
     "sourceKind": "configured-monthly-estimates",
     "isActual": false
@@ -29,7 +29,7 @@
     {
       "month": "2026-11",
       "step": 1,
-      "pointSalesCny": 2162600,
+      "pointSalesCny": 2205600,
       "type": "configured-monthly-estimate",
       "sourceKind": "configured-monthly-estimates",
       "source": "user-provided-forecast",

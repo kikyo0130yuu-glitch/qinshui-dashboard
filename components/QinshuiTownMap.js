@@ -408,9 +408,9 @@
         const coincident=this.pointInfo.filter(other=>other.point.longitude===sourcePoint.longitude&&other.point.latitude===sourcePoint.latitude);
         if(coincident.length>1){
           // Concentric glyphs share the exact projected position; no geographic offset.
-          const index=coincident.findIndex(other=>other.point.id===p.id);
           marker.setAttribute('data-coincident-count',coincident.length);
-          marker.append(node('circle',{r:13+index*4,fill:'none',stroke:'currentColor','stroke-width':1.4,class:'map-overlap-ring'}));
+          // Keep co-located sites at their true position, with small point glyphs.
+          // Do not surround the park with permanent large overlap rings.
         }
         const light=style.marker==='light';
         if(light){

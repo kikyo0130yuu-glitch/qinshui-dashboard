@@ -1,408 +1,208 @@
 (function (global) {
   'use strict';
-
   const STORAGE_KEY = 'qinshui-decision-ai-v1';
-  const ALLOWED_TYPES = new Set(['stock', 'data', 'plan', 'forecast']);
-  const MONEY = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const finite = (value) => typeof value === 'number' && Number.isFinite(value);
-  const amount = (value) => finite(value) ? '¥' + MONEY.format(value) : '—';
-  const count = (value) => finite(value) ? Math.max(0, Math.round(value)).toLocaleString('zh-CN') : '—';
-  const clean = (value, limit = 80) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
-  const DISPLAY_LABELS = { stock: '门店', data: '运营', plan: '拓展', forecast: '配送' };
-  const RULE_VERSION = 'county-supply-chain-rules-v1';
-  const RESEARCH_SOURCES = {
-    network: 'https://www.chinacoop.gov.cn/subStation/fzgg/news.html?aid=1849785&subId=1831',
-    coldChain: 'https://www.ndrc.gov.cn/fggz/fzzlgh/gjjzxgh/202203/t20220325_1320204.html',
-    foodLoss: 'https://www.fao.org/energy/news-and-events/news/news-details/cooling-the-chain--cutting-the-waste/en',
-    scenario: 'https://nyncj.wuhan.gov.cn/ztzl_25/zxzt/zhny/202609/t20260918_2849494.html'
-  };
-  const date = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
-    && Number.isFinite(Date.parse(value + 'T00:00:00Z')) && new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value ? value : null;
-  const nonnegative = value => finite(value) && value >= 0 ? value : null;
-  const integer = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
-
-  // Presentation only: source mode, composition, amounts and proxy request provenance stay intact.
-  function displayText(value) {
-    let text = value.replace(/[（(]\s*含基数\s*[）)]/g, '').replace(/演示|含基数/g, '').replace(/预估/g, '计划');
-    let previous;
-    do { previous = text; text = text.replace(/[（(]\s*[）)]/g, ''); } while (text !== previous);
-    return text.replace(/[ \t]{2,}/g, ' ').trim();
-  }
-
-  function displayAdvice(item) {
-    const text = displayText(item.text) || '建议内容待补充，请结合业务核验。';
-    const label = displayText(item.label) || DISPLAY_LABELS[item.type] || '建议';
-    const emphasis = Array.isArray(item.emphasis) ? [...new Set(item.emphasis.filter((value) => typeof value === 'string')
-      .map(displayText).filter((value) => value && value !== '—' && value !== text && text.includes(value)))] : [];
-    return { ...item, label, text, emphasis };
-  }
-
-  function intervalSeconds(value) {
-    return 60;
-  }
-
+  const finite = value => typeof value === 'number' && Number.isFinite(value);
+  const clean = (value, limit = 100) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
+  const money = value => finite(value) ? '¥' + value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+  const count = value => finite(value) ? value.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) : '—';
+  const date = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value : '';
+  const ruleVersion = 'supply-chain-insight-v1.0';
   function normalizeEndpoint(value) {
-    const text = clean(value, 2048);
-    if (!text) return '';
+    const text = clean(value, 2048); if (!text) return '';
     const url = new URL(text);
     if (url.username || url.password || url.hash) throw new Error('代理地址不能包含账号、密码或片段');
-    for (const key of url.searchParams.keys()) {
-      if (/^(?:auth|sig|password|passwd|pwd|bearer|session|key)$|api[-_]?key|token|secret|authorization|credential|signature|access[-_]?key/i.test(key)) throw new Error('请勿将 API 密钥放入前端代理地址');
-    }
+    for (const key of url.searchParams.keys()) if (/^(?:auth|sig|password|passwd|pwd|bearer|session|key)$|api[-_]?key|token|secret|authorization|credential|signature|access[-_]?key/i.test(key)) throw new Error('请勿将API密钥放入前端代理地址');
     const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-    if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) {
-      throw new Error('AI 代理须使用 HTTPS；本机 localhost 服务可使用 HTTP');
-    }
+    if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) throw new Error('分析代理须使用HTTPS；本机服务可使用HTTP');
     return url.href;
   }
-
   function readStoredConfig() {
     const defaults = { endpoint: '', enabled: false, interval: 60 };
+    try { const saved = JSON.parse(global.localStorage.getItem(STORAGE_KEY) || 'null');
+      return saved && typeof saved === 'object' ? { endpoint: normalizeEndpoint(saved.endpoint), enabled: saved.enabled === true, interval: 60 } : defaults;
+    } catch (_) { return defaults; }
+  }
+  const dependencyIds = new WeakMap(); let dependencySequence = 0;
+  function dependencyId(value) { if (!value || typeof value !== 'object') return ''; if (!dependencyIds.has(value)) dependencyIds.set(value, ++dependencySequence); return dependencyIds.get(value); }
+  function summary(input, factsResolver) {
+    input = input || {}; let analysis = null, analysisError = '';
     try {
-      const saved = JSON.parse(global.localStorage.getItem(STORAGE_KEY) || 'null');
-      if (!saved || typeof saved !== 'object') return defaults;
-      return { endpoint: normalizeEndpoint(saved.endpoint), enabled: saved.enabled === true, interval: intervalSeconds(saved.interval) };
-    } catch (_) {
-      return defaults;
-    }
+      if (input.analysisInput && global.SupplyChainAnalysis) analysis = factsResolver ? factsResolver(input.analysisInput, input.analysisConfig, input.analysisRevision) : global.SupplyChainAnalysis.analyze(input.analysisInput, input.analysisConfig);
+      else if (input.analysis && Array.isArray(input.analysis.insights) && input.analysis.metrics && input.analysis.data_quality) analysis = input.analysis;
+    } catch (error) { analysisError = clean(error.message, 150); }
+    const number = value => finite(value) ? value : null, c = input.consumerMetrics || {}, window = c.window || {};
+    // Raw orders, item rows, member names and member hashes do not leave the facts engine.
+    return { businessDate: date(input.businessDate) || (analysis && analysis.business_date) || '', sourceDate: date(input.sourceDate),
+      mode: clean(input.mode, 30), sourceKind: clean(input.sourceKind, 60), sourceVersion: clean(String(input.sourceVersion || ''), 160),
+      updatedAt: clean(input.updatedAt, 60), salesAmount: number(input.salesAmount ?? input.netOrderSales), orderCount: number(input.orderCount),
+      refundCount: number(input.refundCount), retailOrderSales: number(input.retailOrderSales), retailOrderCount: number(input.retailOrderCount),
+      topOrderStores: (Array.isArray(input.topOrderStores) ? input.topOrderStores : []).slice(0, 3).map(x => ({ name: clean(x.name), amount: number(x.amount), count: number(x.count) })),
+      consumerMetrics: { status: clean(c.status), sourceKind: clean(c.sourceKind), window: { start: date(window.start), end: date(window.end), days: number(window.days), complete: window.complete === true },
+        counts: { identifiedCustomers: number((c.counts || {}).identifiedCustomers), purchaseOrders: number((c.counts || {}).purchaseOrders), repeatCustomers: number((c.counts || {}).repeatCustomers) } },
+      analysis, analysisError };
   }
-
-  // Only the summary schema below may be sent to an AI proxy. Raw orders and customer data are excluded.
-  function contextSummary(source) {
-    const number = value => finite(value) ? value : null;
-    const trend = source.salesTrend || {}, consumer = source.consumerMetrics || {}, weather = source.weather || {}, reserves = source.reserves || {};
-    const window = consumer.window || {}, counts = consumer.counts || {}, replay = consumer.replay || {};
-    const monthly = (rows, actual) => Array.isArray(rows) ? rows.slice(-24).map(row => ({
-      month: /^\d{4}-(?:0[1-9]|1[0-2])$/.test(row && row.month || '') ? row.month : null,
-      amount: number(row && row.amount),
-      ...(actual ? { periodStart: date(row && row.periodStart), periodEnd: date(row && row.periodEnd), complete: typeof (row && row.complete) === 'boolean' ? row.complete : null }
-        : { source: clean(row && row.source, 60) })
-    })).filter(row => row.month) : [];
-    return {
-      salesTrend: {
-        source: clean(trend.source, 60), currency: clean(trend.currency, 12), actual: monthly(trend.actual, true), forecast: monthly(trend.forecast, false),
-        baseline: { coefficient: nonnegative(trend.baseline && trend.baseline.coefficient), source: clean(trend.baseline && trend.baseline.source, 60) }
-      },
-      reserves: { ambientTonnes: nonnegative(reserves.ambientTonnes), coldTonnes: nonnegative(reserves.coldTonnes), source: clean(reserves.source, 60) },
-      consumerMetrics: {
-        status: clean(consumer.status, 30), sourceKind: clean(consumer.sourceKind, 60),
-        window: { start: date(window.start), end: date(window.end), days: integer(window.days), complete: window.complete === true },
-        counts: { identifiedCustomers: integer(counts.identifiedCustomers), purchaseOrders: integer(counts.purchaseOrders), repeatCustomers: integer(counts.repeatCustomers) },
-        replay: { step: integer(replay.step), total: integer(replay.total) }
-      },
-      weather: {
-        status: clean(weather.status, 30), provider: clean(weather.provider, 40),
-        observedAt: clean(weather.observedAt, 40) || null, currentFetchedAt: clean(weather.currentFetchedAt, 40) || null, dailyFetchedAt: clean(weather.dailyFetchedAt, 40) || null,
-        temperature: number(weather.temperature),
-        days: Array.isArray(weather.days) ? weather.days.slice(0, 7).map(day => ({ date: date(day && day.date), high: number(day && day.high), low: number(day && day.low), dayPrecipitationMm: nonnegative(day && day.dayPrecipitationMm), windScale: clean(day && typeof day.windScale === 'number' ? String(day.windScale) : day && day.windScale, 20) || null })).filter(day => day.date) : []
-      }
-    };
-  }
-
-  function summary(input) {
-    const source = input && typeof input === 'object' ? input : {};
-    const number = (value) => finite(value) ? value : null;
-    const order = source.recentOrder && typeof source.recentOrder === 'object' ? {
-      name: clean(source.recentOrder.name), amount: number(source.recentOrder.amount)
-    } : null;
-    const stores = Array.isArray(source.topOrderStores) ? source.topOrderStores.slice(0, 3).map((store) => ({
-      name: clean(store && store.name), amount: number(store && store.amount), count: number(store && store.count)
-    })).filter((store) => store.name) : [];
-    return {
-      businessDate: date(source.businessDate) || '', sourceDate: date(source.sourceDate), mode: clean(source.mode, 30),
-      sourceKind: clean(source.sourceKind, 60), sourceVersion: clean(String(source.sourceVersion || ''), 120),
-      displayComposition: clean(source.displayComposition, 40), baselineSales: number(source.baselineSales),
-      updatedAt: clean(source.updatedAt, 40), displayedSales: number(source.displayedSales),
-      retail: number(source.retail), netOrderSales: number(source.netOrderSales), retailOrderSales: number(source.retailOrderSales), orderCount: number(source.orderCount),
-      retailOrderCount: number(source.retailOrderCount), averageOrder: number(source.averageOrder),
-      refundCount: number(source.refundCount), recentOrder: order, topOrderStores: stores,
-      logistics: {
-        active: number(source.logistics && source.logistics.active), total: number(source.logistics && source.logistics.total),
-        ratio: number(source.logistics && source.logistics.ratio), source: clean(source.logistics && source.logistics.source, 40),
-        onTimePercent: number(source.logistics && source.logistics.onTimePercent), onTimeSource: clean(source.logistics && source.logistics.onTimeSource, 40)
-      },
-      plans: { octStores: number(source.plans && source.plans.octStores), octLogistics: number(source.plans && source.plans.octLogistics), source: clean(source.plans && source.plans.source, 40) },
-      ...contextSummary(source)
-    };
-  }
-
-  function fingerprint(snapshot) {
-    // A clock update alone must not send another request or falsely animate a data change.
-    const { updatedAt, ...businessValues } = snapshot;
-    return JSON.stringify(businessValues);
-  }
-
-  function identity(snapshot) {
-    return JSON.stringify([snapshot.businessDate, snapshot.mode, snapshot.sourceKind, snapshot.sourceVersion]);
-  }
-
   function localAdvice(snapshot) {
-    const step = integer(snapshot.orderCount) || 0;
-    const pick = options => options[(step + Math.floor(Date.now() / 60000)) % options.length];
-    const todayLabel = snapshot.businessDate ? `${Number(snapshot.businessDate.slice(5,7))}月${Number(snapshot.businessDate.slice(8))}日 · ` : '';
-    const rule = (type, label, id, text, emphasis, evidence, sources) => ({ type, label, ruleId: id, ruleVersion: RULE_VERSION, text:todayLabel+text, emphasis, evidence, sources });
-    const recent = snapshot.recentOrder, top = snapshot.topOrderStores[0];
-    const store = recent && recent.name ? recent : top;
-    const net = amount(snapshot.netOrderSales), storeAmount = amount(store && store.amount);
-    const netLabel=snapshot.sourceKind==='historical'?'历史订单净额':'今日订单净额';
-    const sales = store
-      ? `${store.name}${recent ? '最新净额' : '订单净额'}${storeAmount}；${netLabel}${net}，先核对SKU可售量再补货。`
-      : `${netLabel}${net}（${count(snapshot.orderCount)}单）；补齐门店SKU库存与到货，再核对补货。`;
-    const salesText = pick([sales, `${netLabel}${net}；${snapshot.refundCount > 0 ? '含' + count(snapshot.refundCount) + '笔负额单，先核对退单与对账。' : '先按门店、品类核对销售与到货，再安排补货。'}`]);
-    const active = count(snapshot.logistics.active), total = count(snapshot.logistics.total);
-    const ratio = snapshot.logistics.total > 0 && finite(snapshot.logistics.active) ? (snapshot.logistics.active / snapshot.logistics.total * 100).toFixed(2) + '%' : '—';
-    const deliveryBase = snapshot.logistics.source === 'configuration' ? `配送${active}/后勤${total}为配置（${ratio}）` : `配送${active}/后勤${total}口径待核验`;
-    const onTime = snapshot.logistics.onTimeSource === 'configuration' && finite(snapshot.logistics.onTimePercent) && snapshot.logistics.onTimePercent >= 0 && snapshot.logistics.onTimePercent <= 100
-      ? `准时率${snapshot.logistics.onTimePercent.toFixed(1)}%为配置` : '准时率待实测';
-    const delivery = pick([`${deliveryBase}；按时窗合单并补签收时间。`, `${onTime}；按${active}点核对承诺/签收时间与线路。`]);
-    const reserves = snapshot.reserves;
-    const stockText = reserves.source === 'configuration'
-      ? pick([finite(reserves.ambientTonnes)?`储备配置：常温${reserves.ambientTonnes}吨/冷链${finite(reserves.coldTonnes) ? reserves.coldTonnes : '—'}吨；补批次、库容与温控交接记录。`
-        :`冷链当前存储${finite(reserves.coldTonnes) ? reserves.coldTonnes : '—'}吨为配置；补批次与温控交接记录。`, `冷链${finite(reserves.coldTonnes) ? reserves.coldTonnes : '—'}吨为配置；按品类核对温区、交接及批次保质期。`])
-      : '库存批次与库容未接；先核对品类温区、可售量和装卸交接，再安排调拨。';
-    const trend = snapshot.salesTrend, currentMonth = snapshot.businessDate.slice(0, 7), plans = [];
-    const actual = trend.actual.find(row => row.month === currentMonth), forecast = trend.forecast.find(row => row.month === currentMonth);
-    if (trend.currency === 'CNY' && actual && actual.periodStart && actual.periodEnd && actual.periodStart.slice(0, 7) === actual.month && actual.periodEnd.slice(0, 7) === actual.month && actual.periodStart <= actual.periodEnd && finite(actual.amount) && forecast && finite(forecast.amount)) {
-      const period = actual.complete ? `${Number(actual.month.slice(5))}月实绩` : `${Number(actual.month.slice(5))}月${Number(actual.periodStart.slice(8))}–${Number(actual.periodEnd.slice(8))}日实绩`;
-      plans.push({ id: 'plan-monthly-period', text: `${period}${amount(actual.amount)}，整月计划${amount(forecast.amount)}；逐周核对渠道。`, emphasis: [amount(actual.amount), amount(forecast.amount)] });
+    if (snapshot.analysis && global.SupplyChainAnalysis) return global.SupplyChainAnalysis.narrate(snapshot.analysis);
+    const item = (type, label, level, text, emphasis, evidence, id) => ({ type, label, level, text, emphasis: emphasis || [], evidence,
+      ruleId: id, ruleVersion, sources: [], dataQuality: snapshot.analysisError ? 'error' : 'limited' });
+    const advice = [], x = snapshot;
+    if (x.analysisError) advice.push(item('data', '数据核验', '核心', '事实输入未通过校验；' + x.analysisError + '。', ['未通过校验'], [x.analysisError], 'input_validation'));
+    advice.push(item('stock', '销售态势', '核心', '当前订单销售' + money(x.salesAmount) + '、' + count(x.orderCount) + '单；按已发生交易核对销售结构。',
+      ['销售' + money(x.salesAmount)], [{ sales_amount: x.salesAmount, order_count: x.orderCount }], 'summary_sales'));
+    const top = x.topOrderStores[0];
+    if (top) advice.push(item('plan', '门店贡献', '一般', top.name + '销售' + money(top.amount) + '；按订单事实观察门店表现。', [top.name], [top], 'summary_store'));
+    const c = x.consumerMetrics.counts, w = x.consumerMetrics.window;
+    if (w.start && w.end && c.identifiedCustomers > 0 && Number.isSafeInteger(c.repeatCustomers) && c.repeatCustomers >= 0 && c.repeatCustomers <= c.identifiedCustomers
+      && c.purchaseOrders >= c.identifiedCustomers + c.repeatCustomers) {
+      const rate = Number((c.repeatCustomers / c.identifiedCustomers * 100).toFixed(2));
+      advice.push(item('plan', '会员活跃', '一般', '统计窗口内' + count(c.repeatCustomers) + '人多次下单，占识别会员' + count(rate) + '%；观察重复购买表现。', ['多次下单'], [{ ...c, repeatCustomerPercent: rate, window: w }], 'summary_member'));
     }
-    const completed = trend.actual.filter(row => row.complete === true && row.periodStart === row.month + '-01'
-      && row.periodEnd === new Date(Date.UTC(Number(row.month.slice(0, 4)), Number(row.month.slice(5)), 0)).toISOString().slice(0, 10)
-      && finite(row.amount) && row.amount >= 0 && row.periodEnd < snapshot.businessDate);
-    if (trend.currency === 'CNY' && completed.length && trend.baseline.source === 'user-setting' && finite(trend.baseline.coefficient)) {
-      const days = completed.reduce((sum, row) => sum + (Date.parse(row.periodEnd) - Date.parse(row.periodStart)) / 86400000 + 1, 0);
-      if (days > 0) {
-        const daily = completed.reduce((sum, row) => sum + row.amount, 0) / days, base = daily * trend.baseline.coefficient;
-        plans.push({ id: 'plan-baseline-reference', text: `完整月日均${amount(daily)}×配置${trend.baseline.coefficient.toFixed(2)}＝参考${amount(base)}；复核门店/团餐基数。`, emphasis: [amount(daily), amount(base)] });
-      }
-    }
-    const consumer = snapshot.consumerMetrics, c = consumer.counts;
-    if (['ready', 'ok', 'replay', 'offline', 'paused'].includes(consumer.status) && ['actual', 'historical-order-replay'].includes(consumer.sourceKind)
-      && consumer.window.complete && consumer.window.start && consumer.window.end && consumer.window.days > 0
-      && (Date.parse(consumer.window.end) - Date.parse(consumer.window.start)) / 86400000 + 1 === consumer.window.days
-      && c.identifiedCustomers > 0 && c.purchaseOrders >= c.identifiedCustomers + c.repeatCustomers && c.repeatCustomers !== null && c.repeatCustomers <= c.identifiedCustomers) {
-      plans.push({ id: 'plan-member-channel', text: `${consumer.window.days}天会员多次下单${(c.repeatCustomers / c.identifiedCustomers * 100).toFixed(2)}%${consumer.sourceKind === 'historical-order-replay' ? '（原始记录回放）' : ''}；先试门店/团餐组合。`, emphasis: [] });
-    }
-    if (!plans.length) plans.push({ id: 'plan-channel-readiness', text: Number(snapshot.businessDate.slice(5,7))===10
-      ? `10月规划配置：新增门店${count(snapshot.plans.octStores)}家/后勤${count(snapshot.plans.octLogistics)}点；先核对团餐需求与配送资源。`
-      : '按当月网点计划核对团餐需求与配送资源，确认新增网点承接能力。', emphasis: [] });
-    const plan = pick(plans);
-    const weather = snapshot.weather, sourceTime = Date.parse(weather.dailyFetchedAt || weather.currentFetchedAt || '');
-    const referenceTime = Date.parse(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(snapshot.updatedAt) ? snapshot.updatedAt.replace(' ', 'T') + '+08:00' : snapshot.updatedAt);
-    const freshWeather = ['ready', 'ok'].includes(weather.status) && Number.isFinite(sourceTime) && Number.isFinite(referenceTime) && referenceTime >= sourceTime && referenceTime - sourceTime < 3600000;
-    const coldText = !freshWeather && weather.status ? pick([stockText, '天气为缓存或待核验；出车前核对预报、装卸时窗与温控交接。']) : stockText;
-    return [
-      rule('stock', '销售补货', 'sales-order-replenishment', salesText, [net, store && store.name || '', storeAmount], { netOrderSales: snapshot.netOrderSales, recentOrder: recent, refundCount: snapshot.refundCount }, [RESEARCH_SOURCES.network]),
-      rule('forecast', '配送履约', 'delivery-time-window', delivery, [], { ...snapshot.logistics, measuredFulfillmentAvailable: false }, [RESEARCH_SOURCES.network, RESEARCH_SOURCES.coldChain]),
-      rule('data', '库存冷链', 'inventory-cold-handoff', coldText, [], { ...reserves, inventoryBatchesAvailable: false, weatherStatus: weather.status || null, weatherFresh: freshWeather }, [RESEARCH_SOURCES.foodLoss, RESEARCH_SOURCES.coldChain, RESEARCH_SOURCES.scenario]),
-      rule('plan', '经营渠道', plan.id, plan.text, plan.emphasis, { salesTrend: trend, consumerMetrics: consumer, plans: snapshot.plans }, [RESEARCH_SOURCES.network])
-    ];
+    if (advice.length < 4) advice.push(item('data', '依据状态', '一般', '时段历史与正式分类映射待核验；当前只展示订单事实，数据不足时暂停趋势与预测。', ['只展示订单事实'], ['缺少经事实引擎校验的历史输入'], 'summary_limitations'));
+    return advice.slice(0, 4);
   }
-
-  function importantEmphasis(value, snapshot) {
-    const store = [snapshot.recentOrder && snapshot.recentOrder.name, ...snapshot.topOrderStores.map(store => store.name)]
-      .filter(Boolean).map(displayText).some(name => value === name);
-    if (store) return [value];
-    if (/%|°|℃|倍|吨|单|点|家|天/.test(value)) return [];
-    return value.match(/[¥￥]\s*-?\d[\d,]*(?:\.\d{1,2})?|-?\d[\d,]*\.\d{2}/g) || [];
+  function identity(snapshot) { return JSON.stringify([snapshot.businessDate, snapshot.mode, snapshot.sourceKind, snapshot.sourceVersion]); }
+  function fingerprint(snapshot) {
+    const analysis = snapshot.analysis;
+    return JSON.stringify([identity(snapshot), snapshot.salesAmount, snapshot.orderCount, snapshot.refundCount, snapshot.topOrderStores, snapshot.consumerMetrics,
+      analysis && [[analysis.freshness.status, analysis.freshness.last_order_time], analysis.metrics, analysis.data_quality, analysis.history, analysis.forecast, analysis.stores, analysis.categories, analysis.products,
+        analysis.insights.filter(x => ['weather_context', 'warehouse_configuration'].includes(x.signal_type)).map(x => [x.metrics, x.evidence, x.factors])], snapshot.analysisError]);
   }
-
-  function validateAIAdvice(payload) {
-    if (!payload || !Array.isArray(payload.advice) || payload.advice.length < 1 || payload.advice.length > 4) {
-      throw new Error('AI 返回的建议列表无效');
-    }
-    return payload.advice.map((item) => {
-      if (!item || typeof item !== 'object' || !ALLOWED_TYPES.has(item.type)
-        || typeof item.label !== 'string' || !item.label.trim() || item.label.length > 12
-        || typeof item.text !== 'string' || !item.text.trim() || item.text.length > 180) {
-        throw new Error('AI 返回的建议字段无效');
-      }
-      const text = item.text.trim();
-      const emphasis = Array.isArray(item.emphasis) ? item.emphasis.filter((value) => typeof value === 'string'
-        && value.length > 0 && value.length <= 40 && value.trim() !== text && text.includes(value)).slice(0, 8) : [];
-      return displayAdvice({ type: item.type, label: item.label.trim(), text, emphasis });
-    });
-  }
-
-  function appendEmphasis(element, text, emphasis) {
-    const terms = [...new Set(emphasis)].filter((term) => term && term !== '—').sort((a, b) => b.length - a.length);
+  function appendEmphasis(element, text, values) {
+    const terms = [...new Set((values || []).filter(value => typeof value === 'string' && value.length > 1 && value.length <= 32 && value !== text && text.includes(value)))].slice(0, 2).sort((a, b) => b.length - a.length);
     let cursor = 0;
     while (cursor < text.length) {
       let matchAt = text.length, match = '';
-      for (const term of terms) {
-        const position = text.indexOf(term, cursor);
-        if (position >= 0 && (position < matchAt || position === matchAt && term.length > match.length)) {
-          matchAt = position; match = term;
-        }
-      }
+      for (const term of terms) { const position = text.indexOf(term, cursor); if (position >= 0 && position < matchAt) { matchAt = position; match = term; } }
       if (!match) { element.appendChild(document.createTextNode(text.slice(cursor))); break; }
       if (matchAt > cursor) element.appendChild(document.createTextNode(text.slice(cursor, matchAt)));
-      const strong = document.createElement('strong'); strong.textContent = match; element.appendChild(strong);
-      cursor = matchAt + match.length;
+      const strong = document.createElement('strong'); strong.textContent = match; element.appendChild(strong); cursor = matchAt + match.length;
     }
   }
-
   function installMotion() {
     if (document.getElementById('decision-advice-motion')) return;
     const style = document.createElement('style'); style.id = 'decision-advice-motion';
-    style.textContent = '.advice.is-updating{animation:decision-advice-refresh 1.2s ease-out}.advice.is-updating strong{animation:decision-value-refresh 1.2s ease-out}@keyframes decision-advice-refresh{0%{background:#3fbed725}100%{background:transparent}}@keyframes decision-value-refresh{0%{color:#fff;text-shadow:0 0 12px #52daf5}100%{text-shadow:none}}@media(prefers-reduced-motion:reduce){.advice.is-updating,.advice.is-updating strong{animation:none}}';
+    style.textContent = '.advice.is-updating{animation:decision-advice-refresh 1.2s ease-out}.advice-label .advice-level{display:block;font-size:11px;opacity:.7;line-height:1.4}.advice-body{flex:1;min-width:0;display:flex;flex-direction:column}.advice-evidence{display:block;font-size:11px;line-height:16px;margin-top:3px;cursor:pointer;color:#a7bbcc;white-space:normal}.advice-evidence summary{outline-offset:2px}.advice-evidence p{margin:4px 0;line-height:1.55}.advice-evidence[open]{max-height:90px;overflow:auto}.advice.is-updating strong{animation:decision-value-refresh 1.2s ease-out}@keyframes decision-advice-refresh{0%{background:#3fbed725}100%{background:transparent}}@keyframes decision-value-refresh{0%{color:#fff;text-shadow:0 0 12px #52daf5}100%{text-shadow:none}}@media(prefers-reduced-motion:reduce){.advice.is-updating,.advice.is-updating strong{animation:none}}';
     document.head.appendChild(style);
   }
-
   class DecisionAdvice {
     constructor(container, options = {}) {
       if (!container || typeof container.replaceChildren !== 'function') throw new Error('决策建议容器不存在');
-      this.container = container; this.statusElement = options.statusElement || null;
-      this.configElements = options.configElements || {};this.offline=options.offline===true; this.config = this.offline?{endpoint:'',enabled:false,interval:60}:readStoredConfig();
-      this.latest = null; this.latestHash = ''; this.latestIdentity = ''; this.lastAI = null; this.sequence = 0;
-      this.inflight = null; this.timer = null; this.lastRequestedAt = -Infinity; this.destroyed = false;
-      this.handleSave = () => this.saveConfig();
-      this.onRefresh = typeof options.onRefresh === 'function' ? options.onRefresh : () => {};
+      this.container = container; this.statusElement = options.statusElement || null; this.configElements = options.configElements || {};
+      this.offline = options.offline === true; this.config = this.offline ? { endpoint: '', enabled: false, interval: 60 } : readStoredConfig();
+      this.analysisCache = null; this.performanceStats = { computationCount: 0, cacheHitCount: 0, lastDurationMs: 0 };
+      this.latest = null; this.latestHash = ''; this.latestIdentity = ''; this.lastAI = null; this.sequence = 0; this.inflight = null;
+      this.timer = null; this.lastRequestedAt = -Infinity; this.destroyed = false;
+      this.handleSave = () => this.saveConfig(); this.onRefresh = typeof options.onRefresh === 'function' ? options.onRefresh : () => {};
       this.refreshTimer = global.setInterval(() => { this.onRefresh(); this.refreshAdvice(); }, 60000);
       if (this.configElements.save) this.configElements.save.addEventListener('click', this.handleSave);
-      this.fillConfig(); installMotion(); this.status('本地规则建议；AI 分析尚未启用。');
+      this.fillConfig(); installMotion(); this.status('本地事实规则；每60秒生成，语言模型未配置。');
     }
-
-    fillConfig() {
-      const fields = this.configElements;
-      if (fields.endpoint) fields.endpoint.value = this.config.endpoint;
-      if (fields.enabled) fields.enabled.checked = this.config.enabled;
-      if (fields.interval) fields.interval.value = String(this.config.interval);
-    }
-
-    status(text) {
-      if (this.statusElement) this.statusElement.textContent = text;
-    }
-
+    fillConfig() { const x = this.configElements; if (x.endpoint) x.endpoint.value = this.config.endpoint; if (x.enabled) x.enabled.checked = this.config.enabled; if (x.interval) x.interval.value = '60'; }
+    status(text) { if (this.statusElement) this.statusElement.textContent = text; }
     saveConfig() {
-      if(this.offline){this.status('离线演示每60秒生成本地规则建议，不请求远端AI。');this.fillConfig();return false;}
-      const fields = this.configElements;
-      try {
-        const next = { endpoint: normalizeEndpoint(fields.endpoint ? fields.endpoint.value : this.config.endpoint),
-          enabled: fields.enabled ? fields.enabled.checked : this.config.enabled,
-          interval: intervalSeconds(fields.interval ? fields.interval.value : this.config.interval) };
-        if (next.enabled && !next.endpoint) throw new Error('启用 AI 前请填写 HTTPS 分析代理地址');
+      if (this.offline) { this.status('本地事实规则每60秒生成；语言模型未配置。'); this.fillConfig(); return false; }
+      const x = this.configElements;
+      try { const next = { endpoint: normalizeEndpoint(x.endpoint ? x.endpoint.value : this.config.endpoint), enabled: x.enabled ? x.enabled.checked : this.config.enabled, interval: 60 };
+        if (next.enabled && !next.endpoint) throw new Error('启用分析代理前请填写HTTPS地址');
         this.cancelRequest(); this.lastAI = null; this.config = next;
-        try { global.localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch (_) { /* Usable without browser storage. */ }
-        this.fillConfig();
-        if (this.latest) this.render(localAdvice(this.latest), 'local-rules', this.latest);
-        this.status(next.enabled ? 'AI 代理已启用；等待当前汇总分析。' : '本地规则建议；AI 分析尚未启用。');
-        this.schedule();
-        return true;
-      } catch (error) {
-        this.status(error.message || 'AI 配置无效'); return false;
-      }
+        try { global.localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch (_) {}
+        this.fillConfig(); this.refreshAdvice(); return true;
+      } catch (error) { this.status(error.message || '分析配置无效'); return false; }
     }
-
+    computeAnalysis(input, configuration, revision) {
+      // History/mapping inputs are immutable snapshots; replace their array or increment revision after edits.
+      // Current rows are fingerprinted each call so even a same-count correction invalidates the result.
+      const source = input.source || {}, time = Date.parse(input.now || input.updatedAt || ''), key = JSON.stringify([
+        input.businessDate, Math.floor(time / 60000), revision ?? input.revision ?? null,
+        input.historyRevision ?? null, input.categoryRevision ?? null,
+        [dependencyId(input.historyOrders), dependencyId(input.historyDetails), dependencyId(input.categoryMapping)],
+        input.orders, input.details, input.historyCompleteDates, source.historyCompleteDates,
+        [source.kind, source.updateCadence, source.sourceDates], input.categoryMappingSource,
+        input.weather, input.consumerMetrics, input.warehouse, configuration || input.config
+      ]);
+      if (this.analysisCache && this.analysisCache.key === key) { this.performanceStats.cacheHitCount++; return this.analysisCache.analysis; }
+      const start = Date.now(), analysis = global.SupplyChainAnalysis.analyze(input, configuration);
+      this.performanceStats.computationCount++; this.performanceStats.lastDurationMs = Date.now() - start;
+      this.analysisCache = { key, analysis }; return analysis;
+    }
+    getPerformance() { return { ...this.performanceStats }; }
     update(input) {
       if (this.destroyed) return;
-      const snapshot = summary(input), hash = fingerprint(snapshot), sourceIdentity = identity(snapshot);
-      const firstOrNewSource = !this.latest || this.latestIdentity !== sourceIdentity;
-      if (firstOrNewSource) { this.cancelRequest(); this.lastAI = null; }
+      const snapshot = summary(input, (facts, configuration, revision) => this.computeAnalysis(facts, configuration, revision)), hash = fingerprint(snapshot), sourceIdentity = identity(snapshot);
+      const changed = !this.latest || hash !== this.latestHash;
+      if (changed) { this.cancelRequest(); this.lastAI = null; }
       this.latest = snapshot; this.latestHash = hash; this.latestIdentity = sourceIdentity;
-      // Orders update the analysis input immediately. Cards refresh once a
-      // minute; a new day/source clears old advice immediately.
-      if (firstOrNewSource) this.refreshAdvice();
+      // New facts are visible immediately; a minute timer also regenerates against the newest input.
+      if (changed) this.refreshAdvice();
     }
-
     refreshAdvice() {
       if (this.destroyed || !this.latest) return;
-      if (!this.config.enabled || !this.lastAI) this.render(localAdvice(this.latest), 'local-rules', this.latest);
-      if (!this.config.enabled) this.status('每60秒按当日汇总更新本地规则建议；AI 分析尚未启用。');
+      if (!this.lastAI || this.lastAI.hash !== this.latestHash) this.render(localAdvice(this.latest), 'local-rules', this.latest);
+      if (!this.config.enabled || !this.config.endpoint || !this.latest.analysis) {
+        const freshness = this.latest.analysis && this.latest.analysis.freshness;
+        const label = freshness && freshness.status === 'historical-replay' ? '历史订单回放' : freshness && freshness.status === 'batch' ? '日更新分析' : freshness && freshness.status === 'delayed' ? '数据延迟' : '最近更新';
+        this.status('本地事实规则 · ' + label + ' · 每60秒生成；语言模型未配置。');
+      }
       this.schedule();
     }
-
     render(advice, source, snapshot) {
       const fragment = document.createDocumentFragment();
-      for (const original of advice) {
-        const item = displayAdvice(original);
-        const card = document.createElement('div'); card.className = 'advice is-updating';
-        card.dataset.source = source;
-        card.title = (source === 'ai' ? 'AI 代理建议' : '本地规则建议') + ' · ' + snapshot.mode + ' · ' + snapshot.updatedAt;
-        if (item.ruleId) {
-          card.dataset.ruleId = item.ruleId; card.dataset.ruleVersion = item.ruleVersion;
-          card.title += '\n依据：' + JSON.stringify(item.evidence) + '\n研究来源：' + item.sources.join('；');
-        }
-        const label = document.createElement('span'); label.className = 'advice-label ' + item.type; label.textContent = item.label;
-        const text = document.createElement('span'); text.className = 'advice-text'; appendEmphasis(text, item.text, item.emphasis.flatMap(value => importantEmphasis(value, snapshot)));
-        card.append(label, text); fragment.appendChild(card);
+      for (const item of advice) {
+        const card = document.createElement('div'); card.className = 'advice is-updating'; card.dataset.source = source;
+        card.dataset.ruleId = item.ruleId || ''; card.dataset.ruleVersion = item.ruleVersion || ruleVersion;
+        if (item.analysisId) card.dataset.analysisId = item.analysisId;
+        card.title = (source === 'ai' ? '语言模型解读' : source === 'remote-rules' ? '远端事实规则' : '本地事实规则') + ' · ' + snapshot.updatedAt;
+        const label = document.createElement('span'); label.className = 'advice-label ' + item.type; label.appendChild(document.createTextNode(item.label));
+        const level = document.createElement('span'); level.className = 'advice-level'; level.textContent = item.level || '一般'; label.appendChild(level);
+        const text = document.createElement('span'); text.className = 'advice-text'; appendEmphasis(text, item.text, item.emphasis);
+        const body = document.createElement('div'); body.className = 'advice-body'; body.appendChild(text); card.append(label, body);
+        const evidence = document.createElement('details'); evidence.className = 'advice-evidence';
+        const toggle = document.createElement('summary'); toggle.textContent = '查看依据'; evidence.appendChild(toggle);
+        for (const row of item.evidence || []) { const paragraph = document.createElement('p'); paragraph.textContent = typeof row === 'string' ? row : JSON.stringify(row); evidence.appendChild(paragraph); }
+        const state = document.createElement('p'); state.textContent = '数据状态：' + (item.dataQuality || 'limited') + '；来源：' + (item.freshness || snapshot.sourceKind || '待核验'); evidence.appendChild(state);
+        body.appendChild(evidence); fragment.appendChild(card);
       }
-      this.container.replaceChildren(fragment);
-      this.container.dataset.analysisSource = source;
-      this.container.dataset.updatedAt = snapshot.updatedAt;
-      this.container.dataset.businessDate = snapshot.businessDate;
-      this.container.dataset.sourceMode = snapshot.mode;
+      this.container.replaceChildren(fragment); this.container.dataset.analysisSource = source; this.container.dataset.updatedAt = snapshot.updatedAt;
+      this.container.dataset.businessDate = snapshot.businessDate; this.container.dataset.sourceMode = snapshot.mode;
     }
-
     schedule() {
-      if(this.offline)return;
-      if (this.destroyed || !this.latest || !this.config.enabled || !this.config.endpoint || this.inflight) return;
-      if (typeof global.fetch !== 'function') { this.status('浏览器不支持分析请求；已回退本地规则建议。'); return; }
-      if (this.timer !== null) return;
-      const delay = Math.max(0, this.config.interval * 1000 - (Date.now() - this.lastRequestedAt));
-      if (delay === 0) { this.request(); return; }
-      this.timer = global.setTimeout(() => { this.timer = null; this.request(); }, delay);
+      if (this.offline || this.destroyed || !this.latest || !this.latest.analysis || !this.config.enabled || !this.config.endpoint || this.inflight || this.timer !== null) return;
+      if (typeof global.fetch !== 'function') { this.status('分析请求不可用；继续显示本地事实规则。'); return; }
+      const delay = Math.max(0, 60000 - (Date.now() - this.lastRequestedAt));
+      if (delay === 0) this.request(); else this.timer = global.setTimeout(() => { this.timer = null; this.request(); }, delay);
     }
-
     async request() {
-      if(this.offline)return;
-      if (this.destroyed || this.inflight || !this.config.enabled || !this.latest) return;
-      const snapshot = this.latest, hash = this.latestHash, sourceIdentity = this.latestIdentity;
-      const sequence = ++this.sequence;
+      if (this.offline || this.destroyed || this.inflight || !this.config.enabled || !this.latest || !this.latest.analysis) return;
+      const snapshot = this.latest, hash = this.latestHash, sequence = ++this.sequence;
       const controller = typeof global.AbortController === 'function' ? new global.AbortController() : null;
-      const task = { controller, sequence }; this.inflight = task; this.lastRequestedAt = Date.now();
-      this.status(this.lastAI ? 'AI 正在分析当前汇总；保留 ' + this.lastAI.snapshot.updatedAt + ' 的分析建议。'
-        : 'AI 正在分析当前汇总；页面继续展示本地规则建议。');
-      let timeout = null;
+      const task = { controller, sequence }; this.inflight = task; this.lastRequestedAt = Date.now(); let timeout = null;
+      this.status('分析代理正在处理结构化事实；当前显示本地事实规则。');
       try {
-        const deadline = new Promise((_, reject) => { timeout = global.setTimeout(() => {
-          if (controller) controller.abort(); reject(new Error('AI 分析超时'));
-        }, 15000); });
+        const deadline = new Promise((_, reject) => { timeout = global.setTimeout(() => { if (controller) controller.abort(); reject(new Error('分析请求超时')); }, 15000); });
         const call = (async () => {
-          const response = await global.fetch(this.config.endpoint, {
-            method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ snapshot, instructions: { businessDate:snapshot.businessDate, adviceDate:snapshot.businessDate,
-              useCurrentBusinessDate:true, preserveHistoricalEvidenceDates:true } }), ...(controller ? { signal: controller.signal } : {})
-          });
-          if (!response.ok) throw new Error('AI 代理返回 HTTP ' + response.status);
-          const contentType = response.headers && typeof response.headers.get === 'function' ? response.headers.get('content-type') : null;
-          if (contentType && !contentType.toLowerCase().includes('application/json')) throw new Error('AI 代理须返回 JSON');
-          const payload=await response.json();
-          if(payload.businessDate && payload.businessDate!==snapshot.businessDate)throw new Error('AI 返回的业务日期不是当日');
-          return validateAIAdvice(payload);
+          // IDs, metrics and evidence only. This object contains no original order/customer records.
+          const response = await global.fetch(this.config.endpoint, { method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ schemaVersion: ruleVersion, analysis: global.SupplyChainAnalysis.proxyContext(snapshot.analysis), instructions: { selectEvidenceOnly: true, requireAnalysisId: true,
+              noNewNumbers: true, noCausalClaims: true, noInventoryOrMarginClaims: true, includeDatesOnlyWhenNeeded: true, forbidTerm: '净额' } }), ...(controller ? { signal: controller.signal } : {}) });
+          if (!response.ok) throw new Error('分析代理返回HTTP ' + response.status);
+          const type = response.headers && response.headers.get ? response.headers.get('content-type') : '';
+          if (type && !type.toLowerCase().includes('application/json')) throw new Error('分析代理须返回JSON');
+          const payload = await response.json(), advice = global.SupplyChainAnalysis.validateNarration(payload, snapshot.analysis);
+          return { advice, source: payload.narrationProvider === 'llm' && clean(payload.model, 100) ? 'ai' : 'remote-rules' };
         })();
-        const advice = await Promise.race([call, deadline]);
-        if (this.destroyed || sequence !== this.sequence || sourceIdentity !== this.latestIdentity) return;
-        this.lastAI = { advice, snapshot, identity: sourceIdentity };
-        this.render(advice, 'ai', snapshot);
-        this.status('AI 分析时间 ' + snapshot.updatedAt + '；每 ' + this.config.interval + ' 秒按数据变化更新，请结合业务核验。');
+        const result = await Promise.race([call, deadline]);
+        if (this.destroyed || sequence !== this.sequence || hash !== this.latestHash) return;
+        this.lastAI = { ...result, snapshot, hash }; this.render(result.advice, result.source, snapshot);
+        this.status((result.source === 'ai' ? '语言模型依据解读' : '远端事实规则；未声明语言模型') + ' · ' + snapshot.updatedAt + ' · 每60秒生成。');
       } catch (error) {
-        if (this.destroyed || sequence !== this.sequence || sourceIdentity !== this.latestIdentity) return;
-        this.lastAI = null;
-        this.render(localAdvice(this.latest), 'local-rules', this.latest);
-        this.status('AI 分析未完成，已回退本地规则建议。' + (error && error.message ? ' ' + clean(error.message, 100) : ''));
-      } finally {
-        if (timeout !== null) global.clearTimeout(timeout);
-        if (this.inflight === task) this.inflight = null;
-        // Same-source AI results remain visible with their analysis time while later totals are analysed.
-        // Date, mode, or batch changes invalidate the response via sourceIdentity/sequence above.
-        // The next minute requests the latest data, even if sales did not change.
-      }
+        if (this.destroyed || sequence !== this.sequence || hash !== this.latestHash) return;
+        this.lastAI = null; this.render(localAdvice(this.latest), 'local-rules', this.latest);
+        this.status('分析代理未通过校验，已回退本地事实规则。' + clean(error.message, 100));
+      } finally { if (timeout !== null) global.clearTimeout(timeout); if (this.inflight === task) this.inflight = null; }
     }
-
-    cancelRequest() {
-      this.sequence++;
-      if (this.timer !== null) { global.clearTimeout(this.timer); this.timer = null; }
-      if (this.inflight && this.inflight.controller) this.inflight.controller.abort();
-      this.inflight = null;
-    }
-
-    destroy() {
-      this.destroyed = true; this.cancelRequest();
-      global.clearInterval(this.refreshTimer);
-      if (this.configElements.save) this.configElements.save.removeEventListener('click', this.handleSave);
-    }
+    getAnalysis() { return this.latest && this.latest.analysis || null; }
+    cancelRequest() { this.sequence++; if (this.timer !== null) { global.clearTimeout(this.timer); this.timer = null; } if (this.inflight && this.inflight.controller) this.inflight.controller.abort(); this.inflight = null; }
+    destroy() { this.destroyed = true; this.analysisCache = null; this.cancelRequest(); global.clearInterval(this.refreshTimer); if (this.configElements.save) this.configElements.save.removeEventListener('click', this.handleSave); }
   }
-
   global.DecisionAdvice = DecisionAdvice;
 })(window);

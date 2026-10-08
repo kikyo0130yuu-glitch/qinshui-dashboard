@@ -189,7 +189,17 @@
       {type:'demand',label:'需求',color:'#64d6ad',rule:primary.demand},
       {type:'agriculture',label:'农业',color:'#ffe551',rule:primary.agriculture}
     ];
-    if(!snapshot||!snapshot.days.length)return items;
+    const prioritize=item=>{
+      const days=snapshot?.days||[],id=item.rule.id;
+      const threshold=(field,minimum)=>days.some(day=>finite(day[field])&&day[field]>=minimum);
+      const core=item.rule.triggered===true||id==='logistics-rain'&&threshold('precipitationProbabilityPercent',60)
+        ||id==='logistics-wind'&&days.some(day=>maximumWind(day.windScale)>=6)
+        ||id==='storage-temperature'&&threshold('high',30)||id==='agriculture-harvest'&&threshold('dayPrecipitationMm',10);
+      const phrases=['热饮备货','霜冻防护','田间排水','设施与采收','道路与装车防雨','货物固定','冷链交接','关注配送'];
+      const highlights=core?[item.rule.text.split(/[，,]/)[0],...phrases.filter(phrase=>item.rule.text.includes(phrase))]:[];
+      return {...item,priority:core?'core':'general',highlights};
+    };
+    if(!snapshot||!snapshot.days.length)return items.map(prioritize);
     const days=snapshot.days,values=field=>days.map(day=>day[field]).filter(finite);
     const highs=values('high'),lows=values('low'),rain=values('dayPrecipitationMm'),probability=values('precipitationProbabilityPercent');
     const maxHigh=highs.length?Math.max(...highs):null,minLow=lows.length?Math.min(...lows):null;
@@ -204,7 +214,7 @@
     if(maxRain!==null)add('agriculture','农业','#ffe551','agriculture-harvest',maxRain>=10?`白天雨量最高${maxRain}mm，检查田间排水，调整采收安排。`:'采收前核对天气窗口，采后分级并及时转运。',['dayPrecipitationMm']);
     add('purchase','采购','#ffe551','purchase-orders','结合未来7天预报、门店订单和可用库存，分批采购生鲜。',['high','low','dayPrecipitationMm']);
     add('purchase','采购','#ffe551','purchase-suppliers','向合作社确认次日可供数量与质量，核对门店和食堂需求。',['high','low']);
-    return items;
+    return items.map(prioritize);
   }
 
   function attributionURL(value) {
@@ -299,6 +309,8 @@
           enabled: own(options, 'enabled') ? options.enabled !== false : this.config.enabled,
           intervalMs: interval(own(options, 'intervalMs') ? options.intervalMs : this.config.intervalMs)
         };
+        const fallbackEndpoint = global.WEATHER_SERVICE_CONFIG?.fallbackEndpoint || options.fallbackEndpoint;
+        this.fallbackEndpoint = fallbackEndpoint ? normalizeEndpoint(fallbackEndpoint) : null;
       } catch (error) { configError = error.message; this.config.enabled = false; }
       if(this.offline){this.config={endpoint:DEFAULT_ENDPOINT,enabled:false,intervalMs:300000};this.autoRefresh=false;}
       this.handleSave = () => this.saveConfig();
@@ -448,7 +460,14 @@
         const item=this.adviceItems[(this.adviceOffset+i)%this.adviceItems.length];if(!item)continue;
         const label=rows[i].querySelector('span'),text=rows[i].querySelector('p');
         if(label){label.textContent=item.label;label.className='impact-label '+item.type;label.style.color=item.color;label.style.borderColor=item.color+'80';}
-        if(text){text.textContent=item.rule.text;text.dataset.ruleId=item.rule.id;text.dataset.ruleVersion=item.rule.version;
+        rows[i].dataset.priority=item.priority;
+        if(text){
+          text.replaceChildren();
+          const priority=this.document.createElement('span');priority.className='weather-advice-priority '+item.priority;priority.textContent=item.priority==='core'?'核心':'一般';text.append(priority);
+          let offset=0;const body=item.rule.text;
+          const pieces=(item.highlights||[]).filter(Boolean).map(phrase=>({phrase,index:body.indexOf(phrase)})).filter(part=>part.index>=0).sort((a,b)=>a.index-b.index);
+          for(const part of pieces){if(part.index<offset)continue;text.append(this.document.createTextNode(body.slice(offset,part.index)));const strong=this.document.createElement('strong');strong.className='weather-core-highlight';strong.textContent=part.phrase;text.append(strong);offset=part.index+part.phrase.length;}
+          text.append(this.document.createTextNode(body.slice(offset)));text.dataset.ruleId=item.rule.id;text.dataset.ruleVersion=item.rule.version;
           text.title='业务规则：'+item.rule.condition+'\n依据：'+JSON.stringify(item.rule.evidence);}
       }
       if(!this.reducedMotion()){this.adviceContainer.classList.remove('is-advice-changing');void this.adviceContainer.offsetWidth;this.adviceContainer.classList.add('is-advice-changing');}
@@ -507,23 +526,34 @@
       const controller = new global.AbortController(), sequence = ++this.sequence;
       const flight = { controller, timeout: null, reject: () => {}, promise: null };
       this.inflight = flight;
-      let timedOut = false;
+      let timedOut = false, usedFallback = false;
       const transport = new Promise((resolve, reject) => {
         flight.reject = reject;
         flight.timeout = global.setTimeout(() => { timedOut = true; controller.abort(); reject(new Error('timeout')); }, this.timeoutMs);
-        Promise.resolve().then(() => global.fetch(endpoint, { method: 'GET', credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal }))
-          .then(async (response) => {
+        const readJSON = async (target) => {
+            const response = await global.fetch(target, { method: 'GET', credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal });
             if (!response || !response.ok) throw new Error('HTTP ' + (response && response.status || '错误'));
             const contentType = response.headers && response.headers.get('content-type');
             if (contentType && !/\bjson\b|\+json\b/i.test(contentType)) throw new Error('天气汇总须返回 JSON');
             try { return await response.json(); } catch (_) { throw new Error('天气汇总 JSON 无效'); }
-          }).then(resolve, reject);
+        };
+        Promise.resolve().then(() => readJSON(endpoint)).catch(async (error) => {
+          if (!this.fallbackEndpoint || this.fallbackEndpoint === endpoint || controller.signal.aborted || timedOut) throw error;
+          const payload = await readJSON(this.fallbackEndpoint);
+          // A fallback file is historical data. Preserve all source timestamps
+          // and let update() reject snapshots older than the last valid values.
+          if (!payload || !['ok', 'stale'].includes(payload.status)) throw error;
+          usedFallback = true;
+          return { ...payload, status: 'stale' };
+        }).then(resolve, reject);
       });
       flight.promise = (async () => {
         try {
           const payload = await transport;
           if (this.destroyed || sequence !== this.sequence) return false;
-          return this.update(payload, [DEFAULT_ENDPOINT,PUBLIC_SNAPSHOT_ENDPOINT].includes(endpoint) ? 'snapshot-file' : 'backend');
+          const accepted = this.update(payload, usedFallback || [DEFAULT_ENDPOINT,PUBLIC_SNAPSHOT_ENDPOINT].includes(endpoint) ? 'snapshot-file' : 'backend');
+          if (accepted && usedFallback) this.setStatus('stale', '天气接口暂不可用；展示历史 JSON 回退，保留原始获取时间。');
+          return accepted;
         } catch (error) {
           if (this.destroyed || sequence !== this.sequence) return false;
           const detail = timedOut ? '天气汇总读取超时' : /^HTTP \d+$|^天气汇总/.test(error.message || '') ? error.message : '天气汇总读取失败';
