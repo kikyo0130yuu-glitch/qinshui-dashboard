@@ -332,7 +332,7 @@
   }
   function renderProducts(){
     const data=window.PRODUCT_PRICE_ANALYSIS_DATA,current=ProductPriceView.page(data,state.productOffset,window.SALES_WEIGHT_CONFIG.carousel);
-    const trend=ProductDemandTrend.calculateNext7Days(window.SALES_WEIGHT_CONFIG,Date.now());
+    const trend=ProductDemandTrend.calculateCategories(window.SALES_WEIGHT_CONFIG,window.CATEGORY_DEMAND_PROFILES_DATA,Date.now(),data);
     const center=data?.store?.storePriceCenter,hasCenter=Number.isFinite(center);
     state.productRows=current?.items||[];
     $('quantityUnit').hidden=true;
@@ -340,7 +340,7 @@
     $('productPageNumber').textContent=current?current.page+'/'+current.pageCount:'';
     chart('productChart').setOption(ProductPriceView.buildOption(current,trend,colors,data?.store),true);
     $('productLegendBase').textContent='成交价格重心（元）· 上轴';
-    $('productRangeLegend').textContent='7天需求范围 · 下轴';
+    $('productRangeLegend').textContent='7天需求指数范围 · 下轴';
     $('productStoreCenter').textContent=hasCenter?'全店 ￥'+center.toFixed(2):'全店 --';
     $('productCenterValue').textContent=hasCenter?'全店 ￥'+center.toFixed(2):'全店 --';
     $('productCenterLegend').hidden=false;

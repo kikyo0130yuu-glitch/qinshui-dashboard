@@ -157,6 +157,79 @@
       scopeNote: config.scopeNote || null };
   }
 
+  // Keep the V1.1 arithmetic, but replace the common weekday weight with the
+  // middle category's own observed weekday/daily sales ratio. Multiplying an
+  // additional weekday ratio would count the same calendar effect twice.
+  function calculateCategoryNext7Days(profile, config, now) {
+    const common = calculateNext7Days(config, now), settings = config.categoryDemand;
+    if (!settings || settings.method !== 'category-weekday-sales-v1' ||
+      !Number.isInteger(settings.minHistoryDays) || settings.minHistoryDays < 1 ||
+      !Number.isInteger(settings.minWeekdaySampleDays) || settings.minWeekdaySampleDays < 1) {
+      throw new TypeError('Configured category sales model required');
+    }
+    const unavailable = reason => ({ middleCategoryCode: profile?.middleCategoryCode || null,
+      middleCategoryName: profile?.middleCategoryName || null, status: 'insufficient-data', reason,
+      startDate: common.startDate, endDate: common.endDate, future7Days: [], days: [] });
+    if (!profile || profile.status !== 'ok' || !isFiniteWeight(profile.historicalDailySalesAmountCny) ||
+      profile.historicalDailySalesAmountCny <= 0 || profile.historyDayCount < settings.minHistoryDays) {
+      return unavailable('insufficient-category-history');
+    }
+    const historyDates = (profile.dailySales || []).map(day => day.date).filter(validDateString).sort();
+    if (historyDates.length !== profile.historyDayCount || new Set(historyDates).size !== historyDates.length) {
+      return unavailable('invalid-history-dates');
+    }
+    if (historyDates.at(-1) >= common.startDate) return unavailable('history-overlaps-forecast');
+    const days = [];
+    for (const day of common.days) {
+      const weekday = profile.weekdays?.[String(day.weekday)];
+      if (!weekday || !isFiniteWeight(weekday.weight) || !Number.isInteger(weekday.sampleDays) ||
+        weekday.sampleDays < settings.minWeekdaySampleDays) return unavailable('insufficient-weekday-history');
+      const result = calcDemandIndex({ monthWeight: day.monthWeight, weekdayWeight: weekday.weight,
+        holidayWeight: day.holidayWeight }, config);
+      const missingWeights = day.missingWeights.filter(warning => warning.factor !== 'weekday');
+      days.push({ ...day, ...result, weekdayWeight: weekday.weight,
+        categoryWeekdayWeight: weekday.weight, calendarWeekdayWeight: day.weekdayWeight,
+        weekdaySampleDays: weekday.sampleDays, weekdayDailySalesAmountCny: weekday.dailySalesAmountCny,
+        historicalDailySalesAmountCny: profile.historicalDailySalesAmountCny,
+        missingWeights, hasMissingWeight: missingWeights.length > 0 });
+    }
+    const overallDemandIndex = Number((days.reduce((sum, day) => sum + day.finalDemandIndex, 0) / days.length).toFixed(12));
+    return { middleCategoryCode: profile.middleCategoryCode, middleCategoryName: profile.middleCategoryName,
+      status: 'ok', method: settings.method, metric: 'positive-valid-sales-amount',
+      startDate: common.startDate, endDate: common.endDate, days, future7Days: days,
+      historicalDailySalesAmountCny: profile.historicalDailySalesAmountCny,
+      historyDayCount: profile.historyDayCount, positiveSaleDays: profile.positiveSaleDays,
+      warnings: profile.warnings || [], overallDemandIndex,
+      overallTrendLevel: classifyDemandTrend(overallDemandIndex, config),
+      overallTrendDirection: classifyTrendDirection(overallDemandIndex, config),
+      demandIndexLimits: { ...common.demandIndexLimits } };
+  }
+
+  function profilesMatchAnalysis(profilesData, analysis) {
+    const dependency = profilesData?.metadata?.scopeDependency;
+    if (!dependency || !analysis?.analysisPeriod || !analysis?.sourceScope) return false;
+    const keys = ['start', 'end', 'startDateTime', 'endDateTime', 'timeZone', 'dateField', 'timeField', 'windowInclusion'];
+    if (keys.some(key => dependency.analysisPeriod?.[key] !== analysis.analysisPeriod[key])) return false;
+    const department = analysis.sourceScope.salesDepartmentFilter ?? analysis.sourceScope.shopIdFilter ?? null;
+    if ((dependency.departmentFilter === null ? null : String(dependency.departmentFilter)) !==
+      (department === null ? null : String(department))) return false;
+    const identities = items => JSON.stringify((items || []).map(item => [String(item.middleCategoryCode),
+      item.middleCategoryName, String(item.bigCategoryCode), item.bigCategoryName]).sort((a, b) => a[0].localeCompare(b[0])));
+    return identities(dependency.categories) === identities(analysis.middleCategories);
+  }
+
+  function calculateCategories(config, profilesData, now, analysis) {
+    const common = calculateNext7Days(config, now), byCode = Object.create(null);
+    const scopeMatches = analysis === undefined || profilesMatchAnalysis(profilesData, analysis);
+    const forecasts = (scopeMatches ? profilesData?.profiles || [] : []).map(profile => calculateCategoryNext7Days(profile, config, now));
+    for (const forecast of forecasts) byCode[String(forecast.middleCategoryCode)] = forecast;
+    return { ...common, forecastScope: 'category-historical-sales', categorySpecificWeights: true,
+      categoryForecasts: forecasts, categoryForecastsByCode: byCode,
+      profileScopeMatches: scopeMatches,
+      scopeNote: '各中类使用自身历史销售额的星期系数；月份及节假日仍采用公共配置。' };
+  }
+
   return Object.freeze({ getShanghaiDate, addDays, getWeightForDate,
-    calcDemandIndex, classifyDemandTrend, classifyTrendDirection, calculateNext7Days });
+    calcDemandIndex, classifyDemandTrend, classifyTrendDirection, calculateNext7Days,
+    calculateCategoryNext7Days, calculateCategories, profilesMatchAnalysis });
 });

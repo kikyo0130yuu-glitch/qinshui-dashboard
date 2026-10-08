@@ -360,20 +360,29 @@
     "displayPolicyNote": "仅过滤展示；隐藏指定中类及无有效价格的中类，空大类跳过。全店价格计算与原始分类数据保持V1.1口径。"
   },
   "overlappingHolidayPolicy": "max",
-  "categorySpecificWeights": false,
-  "scopeNote": "源权重为门店整体配置。V1所有品类共享同一7日需求趋势，不能据此声称某品类相对其他品类更强。",
+  "categorySpecificWeights": true,
+  "scopeNote": "各中类按自身历史销售额计算星期系数，替代公共星期系数；月度和节假日仍采用公共配置，不重复计入星期影响。",
   "warnings": [
     {
       "code": "MONTH_FIELD_SELECTION",
       "message": "源表同时有基础权重和月度权重系数，V1采用月度权重系数。"
     },
     {
-      "code": "GLOBAL_WEIGHTS_ONLY",
-      "message": "未提供品类差异权重，所有品类趋势相同。"
-    },
-    {
       "code": "SALES_EVENT_CALENDAR",
       "message": "节日日期按源文档作为销售事件使用，春节为春节前购物窗口，不作法定假期推断。"
+    },
+    {
+      "code": "CATEGORY_HISTORICAL_RULE",
+      "message": "品类差异来自历史销售额的星期分布，不是已验证的因果关系或机器学习预测；经营/供给变化保留历史覆盖警告。"
     }
-  ]
+  ],
+  "categoryDemand": {
+    "method": "category-weekday-sales-v1",
+    "metric": "positive-valid-sales-amount",
+    "minHistoryDays": 21,
+    "minWeekdaySampleDays": 3,
+    "weekdayPolicy": "replace-common-weekday-weight",
+    "profileFile": "data/category-demand-profiles.json",
+    "normalDemandIndex": 1
+  }
 }

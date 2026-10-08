@@ -26,12 +26,19 @@
   function page(data,offset=0,policy={}){const pages=displayPages(data,policy);return pages.length?pages[((offset%pages.length)+pages.length)%pages.length]:null;}
   // Seven daily demand factors use their original 0.60–2.00 scale. They are
   // independent of currency prices and do not predict a future selling price.
-  function demandRange(trend){
-    const values=(trend?.days||[]).map(day=>finite(day.finalDemandIndex)?day.finalDemandIndex:day.demandIndex).filter(finite);
+  function demandForecast(trend,item){
+    if(trend?.forecastScope==='category-historical-sales'||trend?.categoryForecastsByCode){
+      return item?trend.categoryForecastsByCode?.[String(item.middleCategoryCode)]||null:null;
+    }
+    return trend;
+  }
+  function demandRange(trend,item){
+    const forecast=demandForecast(trend,item);
+    const values=(forecast?.days||[]).map(day=>finite(day.finalDemandIndex)?day.finalDemandIndex:day.demandIndex).filter(finite);
     return values.length===7?{min:Math.min(...values),max:Math.max(...values),dayCount:values.length}:null;
   }
   function buildOption(current,trend,colors,store={}){
-    const items=current?.items||[],prices=items.map(centerOf),range=demandRange(trend);
+    const items=current?.items||[],prices=items.map(centerOf),ranges=items.map(item=>demandRange(trend,item));
     const storeCenter=finite(store.storePriceCenter)?store.storePriceCenter:items.find(item=>finite(item.storePriceCenter))?.storePriceCenter??null;
     const highest=Math.max(1,...prices.filter(finite),storeCenter||0);
     const limits=trend?.demandIndexLimits||{min:0.6,max:2};
@@ -39,7 +46,9 @@
     const tooltip=params=>{
       const first=params.find(item=>item.seriesId==='price-center')||params[0];if(!first)return '';
       const item=items[first.dataIndex],i=first.dataIndex;if(!item)return '';
-      const future=range?`<br>未来7天需求范围：${range.min.toFixed(2)}–${range.max.toFixed(2)}（1.00为正常需求）<br>${escape(trend.startDate)} 至 ${escape(trend.endDate)}<br>各品类暂用同一整体需求权重`:'';
+      const range=ranges[i],forecast=demandForecast(trend,item);
+      const history=forecast?.method==='category-weekday-sales-v1'?`<br>中类历史日均有效销售额：${yuan(forecast.historicalDailySalesAmountCny)}<br>历史观察${forecast.historyDayCount}天 · 有销售${forecast.positiveSaleDays}天`:'';
+      const future=range?`<br>未来7天需求范围：${range.min.toFixed(2)}–${range.max.toFixed(2)}（1.00为该中类正常需求）<br>${escape(forecast.startDate)} 至 ${escape(forecast.endDate)}${history}`:'<br>未来7天需求范围：—（历史样本不足）';
       return `${escape(item.middleCategoryName)}<br>成交价格重心：${yuan(prices[i])}<br>全店成交价格重心：${yuan(storeCenter)}<br>价格有效SKU：${item.priceValidSkuCount}个 · 动销SKU：${item.salesActiveSkuCount}个${future}`;
     };
     return {animationDurationUpdate:600,
@@ -53,10 +62,11 @@
           formatter:params=>yuan(prices[params.dataIndex])},
         markPoint:{silent:true,data:annotations},
         markLine:{silent:true,symbol:'none',label:{show:false},lineStyle:{color:'#ff657a',width:3,opacity:1,type:'dashed'},data:storeCenter!==null?[{xAxis:storeCenter}]:[]}},
-        {id:'demand-range-start',name:'需求范围起点',type:'bar',xAxisIndex:1,stack:'demand-range',barWidth:12,data:items.map(()=>range?.min??null),itemStyle:{color:'transparent'},silent:true},
-        {id:'demand-range',name:'未来7天需求范围',type:'bar',xAxisIndex:1,stack:'demand-range',barWidth:12,data:items.map(()=>range?range.max-range.min:null),
+        {id:'demand-range-start',name:'需求范围起点',type:'bar',xAxisIndex:1,stack:'demand-range',barWidth:12,data:ranges.map(range=>range?.min??null),itemStyle:{color:'transparent'},silent:true},
+        {id:'demand-range',name:'未来7天需求范围',type:'bar',xAxisIndex:1,stack:'demand-range',barWidth:12,data:ranges.map(range=>range?range.max-range.min:null),
           itemStyle:{color:'rgba(194,206,222,.12)',borderColor:'#c2cede',borderWidth:1.2,borderType:'dashed'},
-          label:{show:Boolean(range),position:'right',color:'#c4d0df',fontSize:16,formatter:()=>range?`${range.min.toFixed(2)}–${range.max.toFixed(2)}`:''}}]
+          markPoint:{silent:true,data:ranges.flatMap((range,i)=>range?[]:[{xAxis:limits.min,yAxis:i,value:'—',symbolSize:0,label:{show:true,formatter:'—',position:'right',fontSize:16,color:colors.muted}}])},
+          label:{show:true,position:'right',color:'#c4d0df',fontSize:16,formatter:(params={dataIndex:0})=>{const range=ranges[params.dataIndex];return range?`${range.min.toFixed(2)}–${range.max.toFixed(2)}`:'';}}}]
     };
   }
   return {page,displayPages,demandRange,buildOption};
