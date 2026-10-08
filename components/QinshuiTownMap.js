@@ -445,9 +445,19 @@
       const card = document.createElement('aside'); card.className = 'map-point-card';
       const name = document.createElement('strong'); name.textContent = point.name;
       const type = document.createElement('p'); type.textContent = style.label;
-      const coordinate = document.createElement('p'); coordinate.textContent = `${point.longitude.toFixed(6)}, ${point.latitude.toFixed(6)} · WGS84`;
+      const schematic = point.displayPosition?.mode === 'schematic';
+      const coordinate = document.createElement('p'); coordinate.textContent = `${point.longitude.toFixed(6)}, ${point.latitude.toFixed(6)} · WGS84${schematic ? ' · 示意位置' : ''}`;
       const close = document.createElement('button'); close.textContent = '关闭'; close.onclick = () => card.remove();
       card.append(name, type, coordinate, close); this.container.append(card); close.focus();
+      if (schematic && point.displayPosition.originalCoordinate?.every(Number.isFinite)) {
+        const original = point.displayPosition.originalCoordinate;
+        const source = document.createElement('p');
+        const workbook = point.sourceCoordinate?.workbook;
+        source.textContent = `原始真实坐标：${original[0].toFixed(6)}, ${original[1].toFixed(6)} · WGS84；${workbook ? workbook + '高德坐标转换' : '原始点位数据'}。`;
+        const note = document.createElement('p');
+        note.textContent = `门店示意偏移 ${point.displayPosition.offsetKm.toFixed(2)} 公里，位于${point.displayPosition.townName}内；原始坐标和数据来源保留。`;
+        card.insertBefore(source, close); card.insertBefore(note, close);
+      }
       const coincident=this.pointInfo.filter(info=>info.point.longitude===point.longitude&&info.point.latitude===point.latitude);
       if(coincident.length>1){
         const heading=document.createElement('p');heading.textContent='同一坐标的业务网点：';

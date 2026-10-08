@@ -6,7 +6,7 @@
     timeZoneOffset: '+08:00', freshnessLagSeconds: 900, weatherMaxAgeSeconds: 3600,
     amountToleranceCents: 1, largeOrderAmount: 5000, businessHours: { open: '06:00', close: '22:00' },
     minimumHistoryDays: 3, basicBaselineDays: 14, weekdayBaselineDays: 28, lookbackDays: { short: 7, recent: 14, weekday: 28 },
-    changeThresholdPercent: 20, forecastMinimumOrders: 20, forecastMinimumProgress: 0.15,
+    changeThresholdPercent: 20, adviceMinimumOrders: 20, adviceDriverFactorRatio: 1.1, concentrationThresholdPercent: 60, forecastMinimumOrders: 20, forecastMinimumProgress: 0.15,
     forecastWeights: { currentProgress: 0.7, recentAverage: 0.3 },
     heatWeights: { amount: 0.4, quantity: 0.3, growth: 0.3 },
     fieldMap: {
@@ -39,8 +39,8 @@
     const result = { ...DEFAULTS, ...x, lookbackDays: { ...DEFAULTS.lookbackDays, ...x.lookbackDays }, businessHours: { ...DEFAULTS.businessHours, ...x.businessHours },
       forecastWeights: { ...DEFAULTS.forecastWeights, ...x.forecastWeights }, heatWeights: { ...DEFAULTS.heatWeights, ...x.heatWeights },
       fieldMap: { orders: { ...DEFAULTS.fieldMap.orders, ...(x.fieldMap || {}).orders }, details: { ...DEFAULTS.fieldMap.details, ...(x.fieldMap || {}).details } } };
-    for (const key of ['refreshSeconds', 'timeBucketMinutes', 'freshnessLagSeconds', 'weatherMaxAgeSeconds', 'amountToleranceCents', 'largeOrderAmount', 'minimumHistoryDays', 'basicBaselineDays', 'weekdayBaselineDays', 'changeThresholdPercent', 'forecastMinimumOrders', 'forecastMinimumProgress']) if (!numeric(result[key]) || result[key] < 0) throw new Error('分析配置数值无效：' + key);
-    if (result.minimumHistoryDays < 3 || result.timeBucketMinutes < 1 || result.forecastMinimumProgress > 1 || seconds(result.businessHours.open) === null || seconds(result.businessHours.close) === null || seconds(result.businessHours.close) <= seconds(result.businessHours.open)) throw new Error('分析配置营业时间或最低样本无效');
+    for (const key of ['refreshSeconds', 'timeBucketMinutes', 'freshnessLagSeconds', 'weatherMaxAgeSeconds', 'amountToleranceCents', 'largeOrderAmount', 'minimumHistoryDays', 'basicBaselineDays', 'weekdayBaselineDays', 'changeThresholdPercent', 'adviceMinimumOrders', 'adviceDriverFactorRatio', 'concentrationThresholdPercent', 'forecastMinimumOrders', 'forecastMinimumProgress']) if (!numeric(result[key]) || result[key] < 0) throw new Error('分析配置数值无效：' + key);
+    if (result.adviceDriverFactorRatio < 1 || result.concentrationThresholdPercent > 100 || result.adviceMinimumOrders < 1 || result.minimumHistoryDays < 3 || result.timeBucketMinutes < 1 || result.forecastMinimumProgress > 1 || seconds(result.businessHours.open) === null || seconds(result.businessHours.close) === null || seconds(result.businessHours.close) <= seconds(result.businessHours.open)) throw new Error('分析配置营业时间或最低样本无效');
     for (const weights of [result.forecastWeights, result.heatWeights, result.lookbackDays]) if (Object.values(weights).some(value => !numeric(value) || value < 0) || Object.values(weights).reduce((a, b) => a + b, 0) <= 0) throw new Error('分析配置权重或历史窗口无效');
     return result;
   }
@@ -66,7 +66,7 @@
     }
     return { rows, rawKeys };
   }
-  function detailRows(raw, orders, rawKeys, cfg, mappings, quality) {
+  function detailRows(raw, orders, rawKeys, cfg, mappings, quality, cutoff = null) {
     const f = cfg.fieldMap.details, byKey = new Map(orders.map(x => [x.key, x]));
     const byId = new Map(); for (const order of orders) { const k = [order.date, order.storeId, order.id].join('|'); byId.set(k, order); }
     const rows = [], seen = new Set();
@@ -82,17 +82,24 @@
       if (qty === 0) quality.zeroQuantityLines++;
       if (qty < 0) quality.negativeQuantityLines++;
       if (qty !== 0 && cents !== 0 && Math.sign(qty) !== Math.sign(cents)) quality.amountQuantitySignMismatch++;
+      // A line's sales time is a separate fact from its receipt's processing time.
+      // Keep untimed/future lines for reconciliation; never borrow the parent clock.
+      const time = safe(record[f.time]), stamp = seconds(time);
+      if (!time) quality.missingDetailTimes++;
+      else if (stamp === null) quality.invalidDetailTimes++;
+      else if (cutoff !== null && stamp > cutoff) quality.futureDetailTimesExcludedFromBuckets++;
       const mapping = mappings.get(productId);
       if (!mapping) quality.unmappedCategoryLines++;
       rows.push({ id, orderKey: parent.key, storeId: parent.storeId, storeName: parent.storeName, date: parent.date,
-        time: parent.time, stamp: parent.stamp, productId, productName: safe(record[f.productName]) || productId,
+        time, stamp, productId, productName: safe(record[f.productName]) || productId,
         unit: safe(record[f.unit]) || '未标单位', quantity: qty, amountCents: cents,
         categoryId: mapping ? mapping.categoryId : 'unmapped', categoryName: mapping ? mapping.categoryName : '待映射分类', categoryVerified: Boolean(mapping) });
     }
     return rows;
   }
   function qualityCounts() { return { invalidOrders: 0, duplicateOrders: 0, futureOrdersExcluded: 0, orphanDetails: 0, invalidDetails: 0, duplicateDetails: 0,
-    zeroQuantityLines: 0, negativeQuantityLines: 0, amountQuantitySignMismatch: 0, unmappedCategoryLines: 0, ordersWithoutDetails: 0, mainDetailAmountMismatch: 0, largeOrders: 0, processingDateMismatchExcluded: 0 }; }
+    zeroQuantityLines: 0, negativeQuantityLines: 0, amountQuantitySignMismatch: 0, unmappedCategoryLines: 0, ordersWithoutDetails: 0, mainDetailAmountMismatch: 0, largeOrders: 0, processingDateMismatchExcluded: 0,
+    missingDetailTimes: 0, invalidDetailTimes: 0, futureDetailTimesExcludedFromBuckets: 0 }; }
   function sumCents(xs) { return xs.reduce((n, row) => n + row.amountCents, 0); }
   function summarize(orders, details) {
     const saleCents = sumCents(orders), qty = details.reduce((n, x) => n + x.quantity, 0), units = [...new Set(details.map(x => x.unit))];
@@ -143,7 +150,7 @@
     if (businessDate !== localNow.slice(0, 10)) throw new Error('businessDate须与分析时区的当前日期一致');
     const source = input.source || {}, kindValue = safe(source.kind), kind = kindValue === 'replay' ? 'historical-order-replay' : kindValue === 'actual-today' ? 'actual' : kindValue || 'unverified', cadence = safe(source.updateCadence) || 'unknown';
     const quality = qualityCounts(), mappings = mappingRows(input), normalized = orderRows(input.orders, cfg, businessDate, cutoff, quality);
-    const orders = normalized.rows, details = detailRows(input.details, orders, normalized.rawKeys, cfg, mappings, quality);
+    const orders = normalized.rows, details = detailRows(input.details, orders, normalized.rawKeys, cfg, mappings, quality, cutoff);
     const perOrder = new Map(); for (const row of details) perOrder.set(row.orderKey, (perOrder.get(row.orderKey) || 0) + row.amountCents);
     for (const order of orders) {
       if (!perOrder.has(order.key)) quality.ordersWithoutDetails++;
@@ -156,6 +163,9 @@
     warning('orphan_detail', quality.orphanDetails, '明细未找到主单', 'high');
     warning('invalid_detail', quality.invalidDetails, '明细必要字段或数量无效，已排除', 'high');
     warning('duplicate_detail', quality.duplicateDetails, '重复明细已去重', 'high');
+    warning('missing_detail_time', quality.missingDetailTimes, '明细销售时间缺失，仅排除数量时段统计；保留主从金额核对', 'medium');
+    warning('invalid_detail_time', quality.invalidDetailTimes, '明细销售时间无效，仅排除数量时段统计；不借用主单处理时间', 'medium');
+    warning('future_detail_time', quality.futureDetailTimesExcludedFromBuckets, '明细销售时间晚于当前截点，暂不计入数量时段；主单入账口径不变', 'medium');
     warning('missing_detail', quality.ordersWithoutDetails, '主单未接到明细', 'high');
     warning('main_detail_mismatch', quality.mainDetailAmountMismatch, '订单金额与明细合计不一致', 'high');
     warning('zero_quantity', quality.zeroQuantityLines, '商品数量为零，不能参与价格计算', 'medium');
@@ -296,12 +306,19 @@
         [product.name + '销售' + money(product.sales_amount) + '，数量' + count(product.sales_qty) + product.quantity_units.join('/'), '订单覆盖' + count(product.order_coverage) + '单，门店覆盖' + count(product.store_coverage) + '家'], [], { baseline: base });
     }
     const buckets = new Map();
-    for (const order of orders) { const index = Math.floor(order.stamp / (cfg.timeBucketMinutes * 60));
-      if (!buckets.has(index)) buckets.set(index, { index, sales_amount_cents: 0, order_count: 0 }); const value = buckets.get(index); value.sales_amount_cents += order.amountCents; value.order_count++; }
-    for (const line of details) { const value = buckets.get(Math.floor(line.stamp / (cfg.timeBucketMinutes * 60))); if (value) { value.sales_qty = (value.sales_qty || 0) + line.quantity; } }
+    const timeBucket = stamp => {
+      const index = Math.floor(stamp / (cfg.timeBucketMinutes * 60));
+      if (!buckets.has(index)) buckets.set(index, { index, sales_amount_cents: 0, order_count: 0 });
+      return buckets.get(index);
+    };
+    for (const order of orders) { const value = timeBucket(order.stamp); value.sales_amount_cents += order.amountCents; value.order_count++; }
+    for (const line of details) {
+      if (line.stamp === null || line.stamp > cutoff) continue;
+      const value = timeBucket(line.stamp); value.sales_qty = (value.sales_qty || 0) + line.quantity;
+    }
     const timeBuckets = [...buckets.values()].sort((a, b) => a.index - b.index).map(row => ({ ...row, sales_amount: row.sales_amount_cents / 100,
       start: String(Math.floor(row.index * cfg.timeBucketMinutes / 60)).padStart(2, '0') + ':' + String(row.index * cfg.timeBucketMinutes % 60).padStart(2, '0'), complete: row.index < bucket, aov: ratio(row.sales_amount_cents / 100, row.order_count), sales_qty: round(row.sales_qty || 0, 3), quantity_comparable: stats.quantity_comparable }));
-    const peak = timeBuckets.filter(x => x.complete).sort((a, b) => b.sales_amount_cents - a.sales_amount_cents)[0];
+    const peak = timeBuckets.filter(x => x.complete && x.order_count > 0).sort((a, b) => b.sales_amount_cents - a.sales_amount_cents)[0];
     if (peak) make('global', 'all', '全部门店', 'observed_time_peak', 'info', '已发生时段高峰',
       [metric('bucket_sales_amount', peak.sales_amount, null), metric('bucket_order_count', peak.order_count, null)],
       ['已完成' + cfg.timeBucketMinutes + '分钟时段中，' + peak.start + '起销售最高：' + money(peak.sales_amount) + '、' + count(peak.order_count) + '单'], ['按已发生时段观察收银与门店服务配置']);
@@ -343,14 +360,84 @@
       if (metrics.length) make('global', 'all', '仓储配置', 'warehouse_configuration', 'info', '仓储配置口径', metrics,
         ['仓储数值为用户配置，库区数与存储吨位分开记录', '缺少SKU可用库存、批次和实际配送时间，不生成补货、缺货或准时率结论'], []);
     }
-    return { schema_version: cfg.version, configuration: { refresh_seconds: cfg.refreshSeconds, minimum_history_days: cfg.minimumHistoryDays, time_bucket_minutes: cfg.timeBucketMinutes, business_hours: cfg.businessHours }, generated_at: generatedAt, business_date: businessDate, source: { kind, update_cadence: cadence, source_dates: sourceDates, classification_as_of: safe((input.categoryMappingSource || {}).classificationAsOf), classification_note: safe((input.categoryMappingSource || {}).snapshotNote, 240), history_source_days: usableDates.length },
+    // Derived operating facts only; original money, history and forecast calculations above remain unchanged.
+    const boundedShare = (part, total) => { const value = ratio(part * 100, total); return numeric(value) && value >= 0 && value <= 100 ? round(value, 2) : null; };
+    const positiveOrders = orders.filter(x => x.amountCents > 0), negativeOrders = orders.filter(x => x.amountCents < 0);
+    const positiveOrderCents = sumCents(positiveOrders), negativeOrderCents = -sumCents(negativeOrders);
+    const positiveStores = stores.filter(x => x.sales_amount > 0), positiveProducts = products.filter(x => x.sales_amount > 0);
+    const positiveCategories = categories.filter(x => x.category_verified && x.sales_amount > 0);
+    const topStores = positiveStores.slice(0, 3), topProducts = positiveProducts.slice(0, 3), topCategories = positiveCategories.slice(0, 3);
+    const topStoreCents = topStores.reduce((n, x) => n + x.sales_amount_cents, 0), topProductCents = topProducts.reduce((n, x) => n + x.sales_amount_cents, 0), topCategoryCents = topCategories.reduce((n, x) => n + x.sales_amount_cents, 0);
+    const largestOrders = positiveOrders.slice().sort((a, b) => b.amountCents - a.amountCents).slice(0, 3);
+    const operating = {
+      has_weighing_sales: details.some(line => /^(kg|公斤|斤|g|克)$/i.test(line.unit) && line.quantity > 0 && line.amountCents > 0), minimum_orders: cfg.adviceMinimumOrders, sample_limited: stats.order_count < cfg.adviceMinimumOrders,
+      positive_order_amount: positiveOrderCents / 100, negative_order_amount_abs: negativeOrderCents / 100,
+      negative_order_count: negativeOrders.length, negative_impact_pct: positiveOrderCents > 0 ? round(negativeOrderCents / positiveOrderCents * 100) : null,
+      observed_store_count: stores.length, top_store_count: topStores.length, top3_store_sales_amount: topStoreCents / 100,
+      top3_store_sales_share_pct: boundedShare(topStoreCents, stats.sales_amount_cents),
+      top3_order_sales_share_pct: boundedShare(sumCents(largestOrders), positiveOrderCents),
+      concentrated_stores: stores.length > 3 && numeric(boundedShare(topStoreCents, stats.sales_amount_cents)) && boundedShare(topStoreCents, stats.sales_amount_cents) >= cfg.concentrationThresholdPercent,
+      top_sku_count: topProducts.length, top_category_count: topCategories.length, top_skus: topProducts.map(x => ({ id: x.id, name: x.name, sales_amount: x.sales_amount, order_coverage: x.order_coverage, store_coverage: x.store_coverage })),
+      top_categories: topCategories.map(x => ({ id: x.id, name: x.name, sales_amount: x.sales_amount, order_coverage: x.order_coverage })),
+      top3_sku_sales_amount: topProductCents / 100, top3_sku_sales_share_pct: boundedShare(topProductCents, Math.round(stats.detail_amount * 100)),
+      top3_category_sales_amount: topCategoryCents / 100, top3_category_sales_share_pct: topCategories.length ? boundedShare(topCategoryCents, Math.round(stats.detail_amount * 100)) : null,
+      item_conclusions_allowed: dataQuality.status !== 'error' && details.length > 0
+    };
+    sales.metrics.push(...[
+      ['positive_order_amount', operating.positive_order_amount], ['negative_order_amount_abs', operating.negative_order_amount_abs],
+      ['negative_order_count', operating.negative_order_count], ['negative_impact_pct', operating.negative_impact_pct],
+      ['top3_store_sales_share_pct', operating.top3_store_sales_share_pct], ['top3_order_sales_share_pct', operating.top3_order_sales_share_pct]
+    ].map(x => metric(x[0], x[1], null)));
+    sales.evidence.push('正向订单金额' + money(operating.positive_order_amount) + '；负金额' + operating.negative_order_count + '单抵减' + money(operating.negative_order_amount_abs));
+    for (const store of stores) {
+      const restOrderCount = stats.order_count - store.order_count, restSales = stats.sales_amount - store.sales_amount;
+      const otherStoreMeanOrders = stores.length > 1 ? restOrderCount / (stores.length - 1) : null;
+      const otherAov = ratio(restSales, restOrderCount);
+      store.sales_share_pct = boundedShare(store.sales_amount_cents, stats.sales_amount_cents);
+      store.order_share_pct = boundedShare(store.order_count, stats.order_count);
+      store.aov_vs_global_change_pct = percent(store.aov, stats.aov);
+      store.order_count_vs_other_store_factor = ratio(store.order_count, otherStoreMeanOrders);
+      store.aov_vs_other_store_factor = ratio(store.aov, otherAov);
+      store.sample_limited = operating.sample_limited || store.order_count < cfg.adviceMinimumOrders;
+      store.revenue_driver = store.sample_limited ? 'sample-limited' : store.order_count_vs_other_store_factor > 0 && store.aov_vs_other_store_factor > 0
+        ? store.order_count_vs_other_store_factor >= store.aov_vs_other_store_factor * cfg.adviceDriverFactorRatio ? 'order-count' : store.aov_vs_other_store_factor >= store.order_count_vs_other_store_factor * cfg.adviceDriverFactorRatio ? 'aov' : 'joint' : 'unavailable';
+      store.driver_basis = 'store-vs-remaining-observed-stores-mean-order-count-and-weighted-aov';
+      const insight = insights.find(x => x.scope.type === 'store' && x.scope.id === store.id);
+      insight.metrics.push(...[['sales_share_pct', store.sales_share_pct], ['order_share_pct', store.order_share_pct], ['aov_vs_global_change_pct', store.aov_vs_global_change_pct],
+        ['order_count_vs_other_store_factor', store.order_count_vs_other_store_factor], ['aov_vs_other_store_factor', store.aov_vs_other_store_factor]].map(x => metric(x[0], x[1], null)));
+      insight.factors.push({ name: store.revenue_driver, basis: store.driver_basis, causal: false, sample_limited: store.sample_limited });
+      insight.evidence.push('销售占' + count(store.sales_share_pct) + '%、订单占' + count(store.order_share_pct) + '%；客单价较整体变化' + count(store.aov_vs_global_change_pct) + '%');
+    }
+    if (operating.item_conclusions_allowed && topProducts.length) {
+      const leadingSku = topProducts[0];
+      make('global', 'all', '商品经营', 'operating_product_mix', 'info', '热销商品贡献',
+        [metric('top3_sku_sales_amount', operating.top3_sku_sales_amount, null), metric('top3_sku_sales_share_pct', operating.top3_sku_sales_share_pct, null),
+          metric('top3_category_sales_amount', operating.top3_category_sales_amount, null), metric('top3_category_sales_share_pct', operating.top3_category_sales_share_pct, null),
+          metric('top_sku_order_coverage', leadingSku.order_coverage, null), metric('top_sku_store_coverage', leadingSku.store_coverage, null)],
+        ['热销前三SKU成交' + money(operating.top3_sku_sales_amount) + '，占已核对商品成交' + count(operating.top3_sku_sales_share_pct) + '%',
+          leadingSku.name + '覆盖' + leadingSku.order_coverage + '单；前三中类占' + count(operating.top3_category_sales_share_pct) + '%'], [], { top_skus: operating.top_skus, top_categories: operating.top_categories });
+    }
+    const recent15 = orders.filter(x => x.stamp > cutoff - 900), recent30 = orders.filter(x => x.stamp > cutoff - 1800), previous15 = orders.filter(x => x.stamp > cutoff - 1800 && x.stamp <= cutoff - 900);
+    operating.recent_15m = { order_count: recent15.length, sales_amount: sumCents(recent15) / 100, complete_window: cutoff >= 900 };
+    operating.recent_30m = { order_count: recent30.length, sales_amount: sumCents(recent30) / 100, complete_window: cutoff >= 1800 };
+    operating.previous_15m = { order_count: previous15.length, sales_amount: sumCents(previous15) / 100 };
+    operating.peak = peak ? { start: peak.start, minutes: cfg.timeBucketMinutes, order_count: peak.order_count, sales_amount: peak.sales_amount } : null;
+    if (orders.length && (recent15.length || peak)) make('global', 'all', '时段服务', 'operating_time_service', 'info', '当前时段接待',
+      [metric('recent_15m_order_count', recent15.length, null), metric('recent_30m_order_count', recent30.length, null),
+        metric('recent_15m_sales_amount', operating.recent_15m.sales_amount, null), metric('recent_30m_sales_amount', operating.recent_30m.sales_amount, null),
+        metric('peak_order_count', peak && peak.order_count, null)],
+      ['近15分钟' + recent15.length + '单、近30分钟' + recent30.length + '单；对应金额' + money(operating.recent_15m.sales_amount) + '/' + money(operating.recent_30m.sales_amount)], [], { peak: operating.peak });
+    return { schema_version: cfg.version, configuration: { refresh_seconds: cfg.refreshSeconds, minimum_history_days: cfg.minimumHistoryDays, time_bucket_minutes: cfg.timeBucketMinutes, business_hours: cfg.businessHours }, generated_at: generatedAt, business_date: businessDate, source: { kind, update_cadence: cadence, source_dates: sourceDates, classification_as_of: safe((input.categoryMappingSource || {}).classificationAsOf), classification_note: safe((input.categoryMappingSource || {}).snapshotNote, 240), history_source_days: usableDates.length,
+        time_policy: { order_time_field: cfg.fieldMap.orders.time, order_clock: 'processing-time', detail_time_field: cfg.fieldMap.details.time, detail_clock: 'sales-time',
+          revenue_and_order_count: 'eligible-master-processing-time-only', quantity_buckets: 'eligible-parent-and-own-valid-sales-time-at-or-before-cutoff',
+          missing_or_invalid_detail_time: 'retain-reconciliation-exclude-quantity-buckets-no-parent-time-fallback', future_detail_time: 'retain-reconciliation-exclude-quantity-buckets', peak_and_order_sampling: 'master-processing-time-only' } },
       freshness, data_quality: dataQuality, history: { available_days: availableDates.length, complete_days: usableDates.length, baseline_enabled: baselineAllowed, comparison_aligned: comparisonAligned, method: salesBase && salesBase.method || null,
         limitation: usableDates.length < cfg.minimumHistoryDays ? '完整时段历史少于' + cfg.minimumHistoryDays + '天；只展示事实' : !historicalIntegrity ? '历史数据质量需核验' : !comparisonAligned ? '多日历史订单叠加回放，与单日同时点基线不具可比性；只展示事实' : null,
         aggregate_history_used_for_time_baseline: false, data_quality_counts: historyQuality, processing_date_policy: 'exclude-processing-date-different-from-accounting-date',
         baseline_order_count: history.length, baseline_detail_count: historyItems.length, store_coverage: [...new Set(history.map(x => x.storeId))].map(id => ({ store_id: id, dates: [...new Set(history.filter(x => x.storeId === id).map(x => x.date))].sort() })) },
       capabilities: { sales: true, categories: mappings.size > 0, prices: numeric(stats.price_center), time_buckets: true, trend: baselineAllowed,
         eod_forecast: Boolean(forecast), category_heat: categories.some(x => numeric(x.heat_index)), weather_contribution: false, inventory: false, procurement: false, delivery_fulfillment: false, margin: false },
-      metrics: stats, stores, categories, products, time_buckets: timeBuckets, forecast, insights,
+      metrics: stats, stores, categories, products, operating_signals: operating, time_buckets: timeBuckets, forecast, insights,
       disabled_conclusions: ['缺货判断', '补货数量', '采购数量', '库存健康', '库存滞销', '临期风险', '供应商履约', '配送准时率', '毛利', '天气数字归因', '价格弹性'] };
   }
   // Presentation evidence is generated from computed business metrics. Full audit evidence stays in Insight JSON.
@@ -360,38 +447,73 @@
       sales_share_pct: '销售份额', price_center: 'SKU成交均价中位数', price_index: '成交价格指数',
       order_coverage: '订单覆盖', store_coverage: '门店覆盖', bucket_sales_amount: '时段销售', bucket_order_count: '时段订单',
       identified_customers: '统计窗口内识别会员', purchase_orders: '会员购买订单', repeat_customers: '多次下单会员',
-      repeat_customer_pct: '多次下单会员占比', temperature_celsius: '当前气温', category_heat_index: '品类热度指数'
+      repeat_customer_pct: '多次下单会员占比', temperature_celsius: '当前气温', category_heat_index: '品类热度指数', positive_order_amount: '正向订单金额', negative_order_amount_abs: '负金额订单抵减金额', negative_order_count: '负金额订单数', negative_impact_pct: '抵减金额占正向订单金额', top3_store_sales_share_pct: '前三门店销售占比', top3_order_sales_share_pct: '前三大额单正向销售占比', order_share_pct: '订单占比', aov_vs_global_change_pct: '客单价较整体变化', order_count_vs_other_store_factor: '订单数较其余有单门店平均倍数', aov_vs_other_store_factor: '客单价较其余有单门店倍数', top3_sku_sales_amount: '前三SKU成交金额', top3_sku_sales_share_pct: '前三SKU成交占比', top3_category_sales_amount: '前三中类成交金额', top3_category_sales_share_pct: '前三中类成交占比', top_sku_order_coverage: '领先SKU订单覆盖', top_sku_store_coverage: '领先SKU门店覆盖', recent_15m_order_count: '近15分钟订单', recent_30m_order_count: '近30分钟订单', recent_15m_sales_amount: '近15分钟销售', recent_30m_sales_amount: '近30分钟销售', peak_order_count: '已发生高峰时段订单'
     };
-    const currency = new Set(['sales_amount', 'aov', 'price_center', 'bucket_sales_amount']);
-    const units = { order_count: '单', order_coverage: '单', store_coverage: '家', bucket_order_count: '单', identified_customers: '人', purchase_orders: '单', repeat_customers: '人', sales_share_pct: '%', repeat_customer_pct: '%', temperature_celsius: '℃' };
+    const currency = new Set(['sales_amount', 'aov', 'price_center', 'bucket_sales_amount', 'positive_order_amount', 'negative_order_amount_abs', 'top3_sku_sales_amount', 'top3_category_sales_amount', 'recent_15m_sales_amount', 'recent_30m_sales_amount']);
+    const units = { order_count: '单', order_coverage: '单', store_coverage: '家', bucket_order_count: '单', identified_customers: '人', purchase_orders: '单', repeat_customers: '人', sales_share_pct: '%', repeat_customer_pct: '%', temperature_celsius: '℃', negative_order_count: '单', negative_impact_pct: '%', top3_store_sales_share_pct: '%', top3_order_sales_share_pct: '%', order_share_pct: '%', aov_vs_global_change_pct: '%', order_count_vs_other_store_factor: '倍', aov_vs_other_store_factor: '倍', top3_sku_sales_share_pct: '%', top3_category_sales_share_pct: '%', top_sku_order_coverage: '单', top_sku_store_coverage: '家', recent_15m_order_count: '单', recent_30m_order_count: '单', peak_order_count: '单' };
     return (insight.metrics || []).filter(row => labels[row.name] && numeric(row.current)).map(row => labels[row.name] + '：' + (currency.has(row.name) ? money(row.current) : count(row.current) + (units[row.name] || '')));
   }
   function narrate(analysis) {
-    const rows = analysis.insights || [], core = rows.find(x => x.signal_type === 'sales_overview'), advice = [];
+    const rows = analysis.insights || [], core = rows.find(x => x.signal_type === 'sales_overview'), advice = [], x = analysis.metrics, op = analysis.operating_signals;
+    if (!op) return [];
+    const shortName = name => safe(name, 16) + (String(name || '').length > 16 ? '…' : '');
     const create = (insight, type, label, text, emphasis) => ({ type, label, text, emphasis: emphasis || [],
       analysisId: insight.analysis_id, ruleId: insight.signal_type, ruleVersion: analysis.schema_version,
-      evidence: presentationEvidence(insight, analysis), metrics: insight.metrics, sources: [],
+      evidence: presentationEvidence(insight, analysis), auditEvidence: insight.evidence, metrics: insight.metrics, actualMetrics: insight.metrics, sources: [],
       dataQuality: insight.data_quality.status, freshness: insight.freshness.status });
-    if (core) {
-      const x = analysis.metrics, orderMetrics = x.order_count > 0 && numeric(x.aov) ? '，客单价' + money(x.aov) : '';
-      advice.push(create(core, 'stock', '销售态势', '当前订单销售' + money(x.sales_amount) + '、累计' + count(x.order_count) + '单' + orderMetrics + '；按当前订单观察销售结构。', ['销售' + money(x.sales_amount)]));
+    if (core && x.order_count > 0) {
+      let judgment, action;
+      if (op.negative_order_count) {
+        judgment = op.negative_order_count + '笔负金额单抵减' + money(op.negative_order_amount_abs) + (numeric(op.negative_impact_pct) ? '（正向销售' + count(op.negative_impact_pct) + '%）' : '');
+        action = '逐单核对退单标识、原单关联和售后原因。';
+      } else if (op.sample_limited) {
+        judgment = '客单价' + money(x.aov) + '，当前样本较少';
+        action = '先核对大额单的SKU、数量和收银编码，暂不据此调整长期排班。';
+      } else if (op.observed_store_count > 3 && numeric(op.top3_store_sales_share_pct)) {
+        judgment = '前三门店占' + count(op.top3_store_sales_share_pct) + '%，销售' + (op.concentrated_stores ? '较集中' : '较分散');
+        action = '优先核对前三店热销SKU陈列和价签，明确忙时收银分工。';
+      } else {
+        judgment = '前三大额单占正向销售' + count(op.top3_order_sales_share_pct) + '%';
+        action = '核对大额单的商品组合与价签，班次交接注明高金额商品编码。';
+      }
+      advice.push(create(core, 'stock', '销售态势', '当前订单销售' + money(x.sales_amount) + '、' + count(x.order_count) + '单；' + judgment + '。' + action,
+        op.negative_order_count ? ['负金额单抵减' + money(op.negative_order_amount_abs)] : ['当前订单销售' + money(x.sales_amount)]));
     }
-    const topStore = (analysis.stores || [])[0];
+    const topStore = (analysis.stores || []).find(store => store.sales_amount > 0);
     if (topStore) {
-      const store = rows.find(x => x.scope.type === 'store' && x.scope.id === topStore.id);
-      if (store) advice.push(create(store, 'plan', '门店贡献', topStore.name + '当前销售' + money(topStore.sales_amount) + '、累计' + count(topStore.order_count) + '单；按当前订单观察门店贡献。', [topStore.name]));
+      const store = rows.find(item => item.scope.type === 'store' && item.scope.id === topStore.id); let text, emphasis;
+      if (topStore.sample_limited || topStore.revenue_driver === 'unavailable') {
+        text = shortName(topStore.name) + '当前' + count(topStore.order_count) + '单、销售' + money(topStore.sales_amount) + '，' + (topStore.sample_limited ? '样本不足以判断稳定驱动' : '跨店客单比较条件不足') + '。先逐单核对大额交易的商品组合、数量和收银编码。';
+        emphasis = ['核对大额交易'];
+      } else {
+        const relative = topStore.aov_vs_global_change_pct, aov = numeric(relative) ? relative === 0 ? '，客单价与整体一致' : '，客单价较整体' + (relative > 0 ? '高' : '低') + count(Math.abs(relative)) + '%' : '';
+        const driver = topStore.revenue_driver === 'order-count' ? '订单量' : topStore.revenue_driver === 'aov' ? '较高客单' : '订单与客单并重';
+        const action = topStore.revenue_driver === 'aov' ? '核对大额单商品组合与价签，明确主销规格及收银编码。' : '优先核对该店热销SKU陈列和价签，明确主销规格标识。';
+        text = shortName(topStore.name) + '销售占' + count(topStore.sales_share_pct) + '%、' + count(topStore.order_count) + '单占订单' + count(topStore.order_share_pct) + '%' + aov + '；贡献主要体现为' + driver + '。' + action;
+        emphasis = ['主要体现为' + driver];
+      }
+      if (store) advice.push(create(store, 'plan', '门店贡献', text, emphasis));
     }
-    // Main/detail inconsistencies still suppress item conclusions even when the quality panel is hidden.
-    const category = analysis.data_quality.status !== 'error' && (analysis.categories || []).find(x => x.category_verified);
-    const categoryInsight = category && rows.find(x => x.scope.type === 'category' && x.scope.id === category.id);
-    if (categoryInsight) advice.push(create(categoryInsight, 'forecast', '商品结构', category.name + '当前成交' + money(category.sales_amount) + '，覆盖' + count(category.order_coverage) + '单；按商品分类观察销售结构。', [category.name]));
-    const member = rows.find(x => x.signal_type === 'member_repeat_observed');
-    if (member) {
-      const x = Object.fromEntries(member.metrics.map(row => [row.name, row.current]));
-      advice.push(create(member, 'plan', '会员活跃', '统计窗口内识别会员' + count(x.identified_customers) + '人，' + count(x.repeat_customers) + '人多次下单（' + count(x.repeat_customer_pct) + '%）；观察重复购买表现。', ['多次下单']));
+    const product = rows.find(item => item.signal_type === 'operating_product_mix'), leadSku = op.top_skus[0];
+    if (product && leadSku && numeric(op.top3_sku_sales_share_pct)) {
+      const rankLabel = op.top_sku_count === 3 ? '热销前三SKU' : '当前' + op.top_sku_count + '个SKU';
+      const text = rankLabel + '占商品成交' + count(op.top3_sku_sales_share_pct) + '%，' + shortName(leadSku.name) + '覆盖' + count(leadSku.order_coverage) + '单。核对这些SKU的陈列、价签和收银编码，明确主销规格，方便顾客选择。';
+      advice.push(create(product, 'forecast', '商品结构', text, [rankLabel + '占商品成交' + count(op.top3_sku_sales_share_pct) + '%']));
     }
-    const peak = rows.find(x => x.signal_type === 'observed_time_peak');
-    if (peak && advice.length < 4) advice.push(create(peak, 'forecast', '时段观察', peak.evidence[0] + '；按当前时段观察门店服务。', ['时段观察']));
+    const time = rows.find(item => item.signal_type === 'operating_time_service'), member = rows.find(item => item.signal_type === 'member_repeat_observed');
+    if (time && op.recent_15m.order_count > 0 && op.recent_30m.complete_window && !op.sample_limited) {
+      const peak = op.peak ? '；已发生高峰' + op.peak.start + '起' + op.peak.minutes + '分钟' + op.peak.order_count + '单' : '';
+      const reception = op.has_weighing_sales ? '收银与称重岗位分开' : '收银与商品咨询分工明确';
+      const text = '近15分钟' + op.recent_15m.order_count + '单，30分钟累计' + op.recent_30m.order_count + '单' + peak + '。将' + reception + '，班次交接列明热销SKU编码，保障连续接待。';
+      advice.push(create(time, 'forecast', '时段服务', text, [reception]));
+    } else if (member) {
+      const m = Object.fromEntries(member.metrics.map(row => [row.name, row.current]));
+      const text = '统计窗口识别会员' + count(m.identified_customers) + '人，' + count(m.repeat_customers) + '人多次下单（' + count(m.repeat_customer_pct) + '%），仅反映窗口内重复购买。由门店记录顾客自愿反馈的商品规格及结账问题，下班交接逐项跟进。';
+      advice.push(create(member, 'plan', '会员活跃', text, ['下班交接逐项跟进']));
+    } else if (time && op.peak && !op.sample_limited) {
+      const text = '近30分钟记录' + op.recent_30m.order_count + '单；已发生高峰为' + op.peak.start + '起' + op.peak.minutes + '分钟' + op.peak.order_count + '单。复核该时段' + (op.has_weighing_sales ? '收银与称重' : '收银与商品咨询') + '接待分工，并在下一班交接中明确主销SKU编码。';
+      advice.push(create(time, 'forecast', '时段服务', text, ['复核该时段收银与称重接待分工']));
+    }
     return advice.slice(0, 4);
   }
   // A fact-only proxy contract: the remote model selects an insight and evidence; it cannot insert new claims.
@@ -405,8 +527,11 @@
       const text = item.text.trim();
       if (/演示|回放|多日叠加|数据核验|净额|导致|保证|缺货|补货|采购量|毛利|准时率|库存健康|滞销|弹性|新注册|会员姓名|<[^>]*>/.test(text)) throw new Error('建议包含未授权结论或格式');
       // Free rewriting cannot be proved factual in a browser. Exact evidence selection is verifiable and fails closed.
-      const candidates = [...insight.evidence, ...insight.recommendations];
+      const localCandidates = narrate(analysis).filter(item => item.analysisId === insight.analysis_id);
+      const candidates = [...insight.evidence, ...insight.recommendations, ...localCandidates.map(item => item.text)];
       if (!candidates.includes(text)) throw new Error('远程文案未与结构化证据一致');
+      const exactLocal = localCandidates.find(item => item.text === text);
+      if (exactLocal) return exactLocal;
       const labels = { stock: '销售态势', data: '数据核验', plan: '经营观察', forecast: '时段观察' };
       return { type: item.type, label: labels[item.type], text,
         emphasis: [], analysisId: insight.analysis_id, ruleId: insight.signal_type, ruleVersion: analysis.schema_version,
@@ -414,9 +539,10 @@
     });
   }
   function proxyContext(analysis) {
+    const localAdvice = narrate(analysis);
     const selected = analysis.insights.filter(x => x.scope.type === 'global' && !['data_quality', 'warehouse_configuration'].includes(x.signal_type));
     for (const type of ['store', 'category', 'sku']) selected.push(...analysis.insights.filter(x => x.scope.type === type).slice(0, 3));
-    return { schema_version: analysis.schema_version, generated_at: analysis.generated_at, business_date: analysis.business_date, source: analysis.source, freshness: analysis.freshness, data_quality: analysis.data_quality, history: analysis.history, capabilities: analysis.capabilities, metrics: analysis.metrics, forecast: analysis.forecast, insights: selected, disabled_conclusions: analysis.disabled_conclusions };
+    return { schema_version: analysis.schema_version, generated_at: analysis.generated_at, business_date: analysis.business_date, source: analysis.source, freshness: analysis.freshness, data_quality: analysis.data_quality, history: analysis.history, capabilities: analysis.capabilities, metrics: analysis.metrics, forecast: analysis.forecast, operating_signals: analysis.operating_signals, insights: selected.map(insight => ({ ...insight, recommendations: [...insight.recommendations, ...localAdvice.filter(item => item.analysisId === insight.analysis_id).map(item => item.text)] })), disabled_conclusions: analysis.disabled_conclusions };
   }
   const API = { defaults: DEFAULTS, analyze, narrate, validateNarration, proxyContext, presentationEvidence, config };
   global.SupplyChainAnalysis = API;

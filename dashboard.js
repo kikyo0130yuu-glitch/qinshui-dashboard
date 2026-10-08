@@ -41,6 +41,18 @@
   const weekdayText=(date=localISO())=>['周日','周一','周二','周三','周四','周五','周六'][new Date(date+'T12:00:00Z').getUTCDay()];
   const activeSiteRatio=()=>Number(config.logistics)>0&&Number.isFinite(Number(config.delivery))?(Number(config.delivery)/Number(config.logistics)*100).toFixed(2)+'%':'—';
   let tickerSpans=null,clockBusinessDate=null;
+  const renderErrors=new Map();let salesClockTimer=null;
+  function renderPart(name,render){
+    try{render();renderErrors.delete(name);return true;}
+    catch(error){const message=String(error?.message||error);if(renderErrors.get(name)!==message){console.error('[沁水大屏] '+name,error);renderErrors.set(name,message);}return false;}
+  }
+  function tickSalesClock(){renderPart('订单自动计时',updateClock);}
+  function startSalesClock(){
+    if(salesClockTimer!==null)return;
+    // Register before optional chart/weather/analysis initialization. A failed
+    // peripheral render must not disable receipt arrival and sales updates.
+    salesClockTimer=setInterval(tickSalesClock,1000);
+  }
   function renderTicker(v=view()){
     const iso=localISO(),month=Number(iso.slice(5,7)),day=Number(iso.slice(8,10));
     const holiday=month===10&&day<=7;
@@ -73,7 +85,7 @@
     const date=localISO();
     if(clockBusinessDate&&clockBusinessDate!==date){state.replayed=0;state.flowCursor=0;state.flowTick=0;state.flowEpoch=Date.now();renderStats();consumerMetrics?.refresh();if(clockBusinessDate.slice(0,7)!==date.slice(0,7))renderPlans();}
     clockBusinessDate=date;
-    const current=dataset();if(current.isToday){const count=clockWindow(current).eligible.length;if(salesRenderRevision(current)!==lastSalesRenderRevision){if(count!==state.replayed)state.flowCursor=0;state.replayed=count;renderStats();}}
+    const current=dataset();if(current.isToday){const count=clockWindow(current).eligible.length;if(salesRenderRevision(current)!==lastSalesRenderRevision){if(count!==state.replayed)state.flowCursor=0;state.replayed=count;renderStats();}else renderFlow(view(),current);}
     $('clock').textContent=nowText();$('dataUpdate').textContent=date+' '+nowText();
     $('deliveryFoot').textContent=`活跃网点占比 ${activeSiteRatio()}`;
     renderTicker();
@@ -101,7 +113,7 @@
       let raw,batch;try{raw=localStorage.getItem(TODAY_ORDER_KEY);batch=raw===null?null:JSON.parse(raw);}catch{return;}
       if(batch!==null&&!OrderBatchSync.valid(batch,localISO(),DASHBOARD_DATA.stores)){toast('更新的订单与明细尚未核对，保留当前销售数据');return;}
       applyTodayOrderBatch(batch);
-    }else if(event.key===DailySalesProgress.KEY){restoreSalesProgress();renderStats();}
+    }else if(event.key===DailySalesProgress.KEY){restoreSalesProgress();renderStats({persist:false});}
   }
   const salesProgress=new DailySalesProgress({getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value)},localISO);
   function salesProgressSlot(){const day=dataset();return day.isToday?(todayOrders?'imported:':'prepared:')+(activeBatch()?.mode||'actual')+':clock-v1':'history:'+state.day;}
@@ -111,7 +123,14 @@
   }
   function restoreSalesSession(){
     const saved=salesProgress.selection();
-    if(saved&&['demo','real'].includes(saved.mode)&&['prepared','history'].includes(saved.source)&&DASHBOARD_DATA.days[saved.day])Object.assign(state,saved);
+    if(saved&&['demo','real'].includes(saved.mode)&&['prepared','history'].includes(saved.source)&&DASHBOARD_DATA.days[saved.day]){
+      state.day=saved.day;
+      // A previous historical preview must not silently freeze the main daily
+      // display on its next opening. Keep current-day imported mode choices;
+      // history remains available explicitly in this session's config panel.
+      if(saved.source==='prepared'&&(saved.mode==='demo'||todayOrders))Object.assign(state,saved);
+      else if(todayOrders)state.mode=saved.mode;
+    }
     restoreSalesProgress();
     for(const mode of ['demo','real']){const button=$(mode+'Mode');button.classList.toggle('active',state.mode===mode);button.setAttribute('aria-pressed',String(state.mode===mode));}
   }
@@ -162,13 +181,44 @@
   function displayedFlow(v){
     const day=dataset();
     if(state.mode==='real'&&!day.isToday)return v.events;
-    const source=day.isToday?OrderLiveFlow.recent(clockWindow(day).eligible):day.events.slice(0,state.replayed),n=source.length;
+    const source=day.isToday?OrderLiveFlow.latest(clockWindow(day).eligible):day.events.slice(0,state.replayed),n=source.length;
     if(!n)return [];
+    // Newest first; retain the last three between arrivals. Scrolling is a
+    // presentation transition, never a second accounting accumulation.
+    if(day.isToday)return source.map(e=>({...e,displayTime:e.processingTime||e.time||e.salesTime||'—'}));
     const end=((n-1-state.flowCursor)%n+n)%n;
     return Array.from({length:Math.min(3,n)},(_,i)=>{
       const e=source[(end-i+n)%n];
       return {...e,displayTime:e.processingTime||e.time||e.salesTime||'—'};
     });
+  }
+  const receiptKey=e=>e.key||[e.sourceDate||e.date||'',e.code,e.id].join('|');
+  let lastFlowSource=null,lastFlowSignature=null,lastFlowReceipts=new Map();
+  function renderFlow(v,day=dataset()){
+    const sourceKey=[state.mode,state.source,day.isToday?day.date:state.day,todayOrders?'imported':'prepared',day.simulated?'replay':'actual'].join(':');
+    const sameSource=lastFlowSource===sourceKey,eligible=day.isToday?clockWindow(day).eligible:v.events;
+    const receipts=new Map(eligible.map(e=>[receiptKey(e),Number.isInteger(e.amountCents)?e.amountCents:Math.round(e.amount*100)]));
+    const rows=displayedFlow(v),signature=JSON.stringify([sourceKey,rows.map(e=>[receiptKey(e),e.displayTime||e.time,e.name,e.type,e.amount])]);
+    if(signature!==lastFlowSignature){
+      const previousRows=new Map([...$('flowList').querySelectorAll('.flow-row')].map((row,index)=>[row.dataset.orderKey,{row,index}]));
+      const fragment=document.createDocumentFragment();
+      for(const [index,e] of rows.entries()){
+        const key=receiptKey(e),previous=sameSource?previousRows.get(key):null,row=previous?.row||document.createElement('div');
+        row.className='flow-row';row.dataset.orderKey=key;row.dataset.occurrenceTime=e.displayTime||e.time||'';
+        row.replaceChildren();
+        const arrived=day.isToday&&sameSource&&(!lastFlowReceipts.has(key)||lastFlowReceipts.get(key)!==receipts.get(key));
+        if(arrived)row.classList.add('flow-arrival');
+        else if(previous&&previous.index!==index){row.style.setProperty('--flow-shift-from',String((previous.index-index)*43)+'px');row.classList.add('flow-shift');}
+        for(const [className,value] of [['mono small',e.displayTime||e.time||'—'],['place',e.name||'—'],['flow-type',e.type||'门店'],['flow-amount'+(e.amount<0?' red':''),(e.amount<0?'−':'¥')+money(Math.abs(e.amount))]]){
+          const span=document.createElement('span');span.className=className;span.textContent=value;if(className==='place')span.title=e.name||'—';row.append(span);
+        }
+        fragment.append(row);
+      }
+      if(!rows.length){const empty=document.createElement('div');empty.className='small';empty.style.padding='18px 0';empty.textContent=day.isToday?'当前时间暂无订单':'暂无订单';fragment.append(empty);}
+      $('flowList').replaceChildren(fragment);lastFlowSignature=signature;
+    }
+    $('flowList').dataset.accumulatedCount=String(v.count);
+    lastFlowSource=sourceKey;lastFlowReceipts=receipts;
   }
   function renderConsumerMetrics(){
     if(!consumerMetrics)return;
@@ -186,8 +236,9 @@
       replay:{sourceVersion:source.sourceFingerprint,runId:'consumer-replay-'+consumerReplayRun,step,total:source.eventCount}});
     if(applied){consumerReplayBatch=batch;consumerReplayStep=step;}
   }
-  function renderStats(){
-    saveSalesProgress();
+  function renderStats(options={}){
+    // Storage observers render locally without writing back to other tabs.
+    if(options.persist!==false)saveSalesProgress();
     const v=view(),demo=state.mode==='demo',day=dataset();
     const salesChanged=$('salesValue').textContent!==money(v.total);
     $('salesValue').textContent=money(v.total);
@@ -197,16 +248,19 @@
     const change=comparisonBase>0?(v.total-comparisonBase)/comparisonBase*100:null;
     $('salesFoot').textContent=change===null?'— vs 昨日':`${change<0?'▼':'▲'} ${Math.abs(change).toFixed(1)}% vs 昨日`;
     $('salesFoot').classList.toggle('red',change<0);
-    $('retailTotal').textContent='¥'+money(v.retail);$('deliveryValue').textContent=config.delivery;$('deliveryFoot').textContent=`活跃网点占比 ${activeSiteRatio()}`;
+    const retailChanged=$('retailTotal').textContent!=='¥'+money(v.retail);
+    $('retailTotal').textContent='¥'+money(v.retail);
+    if(retailChanged){$('retailTotal').classList.remove('order-value-update');void $('retailTotal').offsetWidth;$('retailTotal').classList.add('order-value-update');}
+    $('salesValue').dataset.orderCount=String(v.count);$('retailTotal').dataset.orderCount=String(v.retailCount);
+    $('deliveryValue').textContent=config.delivery;$('deliveryFoot').textContent=`活跃网点占比 ${activeSiteRatio()}`;
     $('ontimeValue').textContent=Number(config.ontime).toFixed(1);$('ontimeFoot').textContent=`${config.ontimeChange>=0?'+':''}${Number(config.ontimeChange).toFixed(1)}pt 较上周`;
     $('siteValue').textContent=Number(config.stores)+Number(config.logistics);$('siteFoot').textContent=`门店 ${config.stores} + 后勤 ${config.logistics}`;$('averageOrder').textContent=v.average===null?'—':Number(v.average).toFixed(2);
     $('modeStatus').textContent=day.isToday?(day.simulated?'日均基数×45% + 截至'+nowText()+'的已发生订单':'今日门店订单 · '+(demo?'基数 + 回放':'实收净额')):(demo?'日均基数 + 所选历史订单回放':'历史订单净销售额 · 不加基数');
     $('dataDayLabel').textContent=day.isToday?'历史预览日期':demo?'回放源日期':'业务日期';$('dataDay').disabled=day.isToday;
     $('dateInfo').textContent=day.isToday?`订单日期 ${day.date}${day.simulated?' · 演示（保留原始日期）':''}`:(demo?`展示日期 ${localISO()} · 演示`:'已导入历史数据，非今日实时');
-    const flowRows=displayedFlow(v);
-    $('flowList').innerHTML=flowRows.map(e=>`<div class="flow-row"><span class="mono small">${e.displayTime||e.time||'—'}</span><span class="place" title="${e.name}">${e.name}</span><span class="flow-type">${e.type}</span><span class="flow-amount ${e.amount<0?'red':''}">${e.amount<0?'−':'¥'}${money(Math.abs(e.amount))}</span></div>`).join('');
-    if(!flowRows.length)$('flowList').innerHTML='<div class="small" style="padding:18px 0">'+(day.isToday?'近5分钟暂无新订单':'暂无订单')+'</div>';
-    renderStores(v);renderTicker(v);renderConsumerMetrics();renderDecisions(v);lastSalesRenderRevision=salesRenderRevision(day);
+    const flowOK=renderPart('订单流水',()=>renderFlow(v,day)),storesOK=renderPart('门店销售',()=>renderStores(v));
+    renderPart('实时滚动',()=>renderTicker(v));renderPart('消费者分析',renderConsumerMetrics);renderPart('智慧决策',()=>renderDecisions(v));
+    if(flowOK&&storesOK)lastSalesRenderRevision=salesRenderRevision(day);
   }
   function renderStores(v){
     const day=dataset(),sourceKey=[state.mode,day.isToday?day.date:state.day,day.simulated?'replay':day.isToday?'actual':'historical',state.source].join(':');
@@ -233,7 +287,7 @@
         markLine:{silent:true,symbol:'none',label:{show:false},lineStyle:{color:colors.grid,type:'solid',width:1},data:scale.positions.map(xAxis=>({xAxis}))},
         label:{show:true,position:'right',fontSize:22,color:colors.cyan,formatter:p=>'¥'+shortMoney(p.data.actualValue)}}]
     },false);
-    storeFlow?.update({rows,positiveCodes,changedCodes:changed.map(s=>s.code),sourceKey});
+    renderPart('门店光条动效',()=>storeFlow?.update({rows,positiveCodes,changedCodes:changed.map(s=>s.code),sourceKey}));
   }
   function setMode(mode){saveSalesProgress();state.mode=mode;restoreSalesProgress();state.storeOffset=0;$('demoMode').classList.toggle('active',mode==='demo');$('realMode').classList.toggle('active',mode==='real');$('demoMode').setAttribute('aria-pressed',String(mode==='demo'));$('realMode').setAttribute('aria-pressed',String(mode==='real'));renderStats();}
   function renderMonitor(){
@@ -289,9 +343,10 @@
   let replayTimer,rankTimer,storeRankTimer;
   function startTimers(){
     clearInterval(replayTimer);clearInterval(rankTimer);clearInterval(storeRankTimer);
-    replayTimer=setInterval(()=>{if(state.playing){const day=dataset();if(day.isToday){if(clockWindow(day).eligible.length)state.flowCursor++;state.flowTick++;renderStats();}else if(state.mode==='demo'){const n=day.events.length;if(state.replayed<n)state.replayed++;else if(n)state.flowCursor++;state.flowTick++;renderStats();}}},config.replaySpeed*1000);
-    storeRankTimer=setInterval(()=>{state.storeOffset++;renderStores(view());},config.storeRankSpeed*1000);
-    rankTimer=setInterval(()=>{state.productOffset++;renderProducts();},config.rankSpeed*1000);
+    const delay=(key,min,max)=>{const value=Number(config[key]);return (Number.isFinite(value)&&value>=min&&value<=max?value:initialConfig[key])*1000;};
+    replayTimer=setInterval(()=>{if(state.playing){const day=dataset();if(day.isToday){tickSalesClock();}else if(state.mode==='demo'){const n=day.events.length;if(state.replayed<n)state.replayed++;else if(n)state.flowCursor++;state.flowTick++;renderPart('历史流水',renderStats);}}},delay('replaySpeed',1,30));
+    storeRankTimer=setInterval(()=>{state.storeOffset++;renderPart('门店排行轮播',()=>renderStores(view()));},delay('storeRankSpeed',3,180));
+    rankTimer=setInterval(()=>{state.productOffset++;renderPart('商品轮播',renderProducts);},delay('rankSpeed',3,120));
   }
   function rankWindow(items,offset,size){const start=offset%Math.max(1,items.length-size+1);return items.slice(start,start+size);}
   function renderWeather(){
@@ -373,7 +428,13 @@
       },analysisRevision:decisionBatchRevision
     });
   }
-  function pointData(){return {...MAP_DATA,points:mapPointState.points,settings:{...MAP_DATA.settings,dispatchOriginId:mapPointState.originId,pointCoordinateSystemsConfirmed:Boolean(mapPointState.points.length),pointCoordinateSystem:mapPointState.points.length?'WGS84':MAP_DATA.settings.pointCoordinateSystem}};}
+  function pointData(){
+    // Display-only offsets never enter the coordinate editor, storage, or source exports.
+    const canonicalStores=MAP_DATA.points.filter(p=>p.type==='store'),publishedStoreIds=new Set(canonicalStores.map(p=>p.id));
+    const originals=[...mapPointState.points.filter(p=>!publishedStoreIds.has(p.id)),...canonicalStores];
+    const points=StoreDisplayPoints.apply(originals,window.STORE_DISPLAY_POINTS_DATA);
+    return {...MAP_DATA,points,settings:{...MAP_DATA.settings,dispatchOriginId:mapPointState.originId,pointCoordinateSystemsConfirmed:Boolean(points.length),pointCoordinateSystem:points.length?'WGS84':MAP_DATA.settings.pointCoordinateSystem}};
+  }
   function persistPoints(){
     mapPointState.publishedPointRevision=MAP_DATA.settings.pointDataRevision||null;
     try{localStorage.setItem('qinshui-map-points-v1',JSON.stringify(mapPointState));}catch{$('pointFeedback').textContent='当前浏览器无法保存，已应用于本次预览。';}
@@ -413,5 +474,5 @@
     $('exportPoints').onclick=()=>{const blob=new Blob([JSON.stringify(mapPointState.points.map(p=>({...p,isDispatchOrigin:p.id===mapPointState.originId})),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='qinshui-map-points.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};fillPointList();
   }
 
-  function init(){window.dashboardNetworkMonitor=new NetworkMonitor($('networkStatus'));restoreSalesSession();const storeChart=chart('storeChart');if(typeof storeChart.getModel==='function'&&typeof storeChart.getZr==='function'&&echarts.graphic)storeFlow=new StoreBarFlow(storeChart,{seriesId:'store-sales',durationMs:1200});consumerMetrics=new ConsumerMetrics($('consumerAnalysisPanel'),{snapshot:window.CONSUMER_METRICS_DATA||null,...(OFFLINE_DEMO?{offline:true,enabled:false,autoStart:false,autoRefresh:false,persistConfig:false}:{}),statusElement:$('consumerMetricsStatus'),expectedWindowDays:window.CONSUMER_REPLAY_DATA?.window?.days||2,allowHistoricalWindow:true,precision:2,onStatus:()=>{renderDecisions();},configElements:{endpoint:$('consumerMetricsEndpoint'),enabled:$('consumerMetricsEnabled'),interval:$('consumerMetricsInterval'),save:$('saveConsumerMetrics')}});decisionAdvice=new DecisionAdvice($('decisionAdviceList'),{statusElement:$('aiAdviceStatus'),offline:OFFLINE_DEMO,onRefresh:()=>renderDecisions(),configElements:{endpoint:$('aiAdviceEndpoint'),enabled:$('aiAdviceEnabled'),interval:$('aiAdviceInterval'),save:$('saveAIAdvice')}});Object.keys(DASHBOARD_DATA.days).sort().forEach(day=>{$('dataDay').add(new Option(day,day));});$('dataDay').value=state.day;$('dataDay').onchange=e=>{saveSalesProgress();state.day=e.target.value;state.source='history';state.storeOffset=0;restoreSalesProgress();state.playing=true;renderStats();};$('demoMode').onclick=()=>setMode('demo');$('realMode').onclick=()=>setMode('real');$('openConfig').onclick=openConfig;$('openMapConfig').onclick=()=>{openConfig();pane('map');};$('planQuarter').onchange=renderPlans;$('closeConfig').onclick=closeConfig;$('saveConfig').onclick=saveConfig;$('resetConfig').onclick=()=>{fillConfig({...initialConfig});toast('已填入初始值，点击保存并预览后应用');};$('configBackdrop').onclick=e=>{if(e.target===$('configBackdrop'))closeConfig();};document.querySelectorAll('[data-pane]').forEach(b=>b.onclick=()=>pane(b.dataset.pane));$('openSources').onclick=()=>{$('sourcesModal').classList.add('open');$('closeSources').focus();};$('closeSources').onclick=()=>{$('sourcesModal').classList.remove('open');$('openSources').focus();};$('sourcesModal').onclick=e=>{if(e.target===$('sourcesModal'))$('closeSources').click();};document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('configBackdrop').classList.contains('open'))closeConfig();$('sourcesModal').classList.remove('open');}if(e.key==='Tab'){const modal=$('sourcesModal').classList.contains('open')?$('sourcesModal'):$('configBackdrop').classList.contains('open')?$('configBackdrop'):null;if(modal){const focusable=[...modal.querySelectorAll('button,input,select')].filter(el=>!el.hidden&&el.offsetParent!==null&&!el.disabled),first=focusable[0],last=focusable.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}}});$('fullscreen').onclick=async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen();}catch{toast('当前预览窗口不支持全屏，可在浏览器新窗口打开');}};document.querySelectorAll('[data-product]').forEach(b=>b.onclick=()=>{state.product=b.dataset.product;state.productOffset=0;renderProducts();});$('quantityUnit').onchange=e=>{state.unit=e.target.value;state.productOffset=0;renderProducts();};renderWeather();$('sourceRows').innerHTML=[['试营业销售基数','10 天 · 零售 + 批发 ¥417,280.88','已核对',false],['类别销售报表','期间自选 · 正式表头待业务确认','样表已收到',true],['零售订单主表','9,711 张 · 9 家门店 · 10 天','已核对',false],['今日演示订单与明细','10月5日、6日 · 1,682张订单 / 5,068条明细 · ¥40,457.49','逐单对账一致',false],['批发订单主表','283 张 · 批发与退单按净额计算','已核对',false],['批发订单明细','284 行样本 · 51 张单据','部分样本',true],['商品价格与9月历史','19,745张主单 / 51,258条明细 · 3,059价格有效SKU · 17个中类','正式分类已核验',false],['月度实际与销售计划','6–9月完整实绩 · 10月截至5日 · 当月实际/预期对比 · 未来3个月计划','配置计划',true]].map(([name,note,status,pending])=>`<div class="source-row"><div><b>${name}</b><p>${note}</p></div><span class="source-status ${pending?'pending':''}">${status}</span></div>`).join('');initPoints();TodayOrderImport.init(DASHBOARD_DATA.stores,localISO,applyTodayOrderBatch);const headings=['部门编码','部门名称','含税销售额','销售数量','客流量'];$('mappingFields').innerHTML=[['门店 / 部门编码','部门编码'],['门店 / 部门名称','部门名称'],['含税销售金额','含税销售额']].map(([label,selected])=>`<div class="mapping-row"><span>${label}</span><select aria-label="${label}对应字段">${headings.map(h=>`<option ${h===selected?'selected':''}>${h}</option>`).join('')}</select></div>`).join('');$('importFile').onchange=e=>{const f=e.target.files[0];$('fileStatus').textContent=f?`已选择 ${f.name} · ${(f.size/1024).toFixed(1)} KB；下方字段为样表映射演示，未解析文件。`:'按实际字段映射，不依赖固定列位置。';$('importResult').textContent='';};$('previewImport').onclick=()=>{const a=new Date($('importStart').value+'T00:00:00Z'),b=new Date($('importEnd').value+'T00:00:00Z'),days=Math.round((b-a)/86400000)+1;if(!Number.isFinite(days)||days<=0){$('importResult').textContent='请填写有效的起止日期，结束日期不能早于开始日期。';return;}const selected=[...$('mappingFields').querySelectorAll('select')].map(x=>x.value);if(new Set(selected).size!==selected.length){$('importResult').textContent='不同业务字段不能映射到同一个来源字段。';return;}if(selected[2]!=='含税销售额'){$('importResult').textContent='销售金额不能使用销售数量或客流量；需确认选定字段的金额含义。';return;}$('importResult').innerHTML=`<p>期间首尾计入：<b>${days} 天</b><br>映射：${selected.join(' / ')}<br>导入规则：忽略空白与合计行，按部门编码匹配，展示基数 = 对应含税金额 ÷ ${days} × 45%。</p><p class="gold">这是映射规则预览，尚未解析或保存所选文件。</p>`;};renderStats();renderMonitor();renderPlans();renderProducts();renderRadar();updateClock();setInterval(updateClock,1000);startTimers();window.addEventListener('pagehide',saveSalesProgress);document.addEventListener('visibilitychange',()=>{if(document.hidden)saveSalesProgress();else updateClock();});window.addEventListener('storage',syncStorageData);window.addEventListener('resize',()=>Object.values(charts).forEach(c=>c.resize()));if(document.modelContext?.registerTool){const tools=[{name:'read_dashboard_preview',description:'Read the current prototype mode, source date, sales summary and local configuration.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute:()=>({mode:state.mode,sourceDate:state.day,sales:view().total,config:{...config},prototype:true})},{name:'set_dashboard_preview_mode',description:'Switch between historical real-data preview and historical order replay; no shared data is changed.',inputSchema:{type:'object',properties:{mode:{type:'string',enum:['real','demo']}},required:['mode'],additionalProperties:false},execute:input=>{if(!input||!['real','demo'].includes(input.mode))throw new Error('Invalid preview mode');setMode(input.mode);return {mode:state.mode,sales:view().total};}}];for(const tool of tools)try{Promise.resolve(document.modelContext.registerTool(tool)).catch(()=>{});}catch{}}}
+  function init(){startSalesClock();window.dashboardNetworkMonitor=new NetworkMonitor($('networkStatus'));restoreSalesSession();const storeChart=chart('storeChart');if(typeof storeChart.getModel==='function'&&typeof storeChart.getZr==='function'&&echarts.graphic)storeFlow=new StoreBarFlow(storeChart,{seriesId:'store-sales',durationMs:1200});consumerMetrics=new ConsumerMetrics($('consumerAnalysisPanel'),{snapshot:window.CONSUMER_METRICS_DATA||null,...(OFFLINE_DEMO?{offline:true,enabled:false,autoStart:false,autoRefresh:false,persistConfig:false}:{}),statusElement:$('consumerMetricsStatus'),expectedWindowDays:window.CONSUMER_REPLAY_DATA?.window?.days||2,allowHistoricalWindow:true,precision:2,onStatus:()=>{renderDecisions();},configElements:{endpoint:$('consumerMetricsEndpoint'),enabled:$('consumerMetricsEnabled'),interval:$('consumerMetricsInterval'),save:$('saveConsumerMetrics')}});decisionAdvice=new DecisionAdvice($('decisionAdviceList'),{statusElement:$('aiAdviceStatus'),offline:OFFLINE_DEMO,onRefresh:()=>renderDecisions(),configElements:{endpoint:$('aiAdviceEndpoint'),enabled:$('aiAdviceEnabled'),interval:$('aiAdviceInterval'),save:$('saveAIAdvice')}});Object.keys(DASHBOARD_DATA.days).sort().forEach(day=>{$('dataDay').add(new Option(day,day));});$('dataDay').value=state.day;$('dataDay').onchange=e=>{saveSalesProgress();state.day=e.target.value;state.source='history';state.storeOffset=0;restoreSalesProgress();state.playing=true;renderStats();};$('demoMode').onclick=()=>setMode('demo');$('realMode').onclick=()=>setMode('real');$('openConfig').onclick=openConfig;$('openMapConfig').onclick=()=>{openConfig();pane('map');};$('planQuarter').onchange=renderPlans;$('closeConfig').onclick=closeConfig;$('saveConfig').onclick=saveConfig;$('resetConfig').onclick=()=>{fillConfig({...initialConfig});toast('已填入初始值，点击保存并预览后应用');};$('configBackdrop').onclick=e=>{if(e.target===$('configBackdrop'))closeConfig();};document.querySelectorAll('[data-pane]').forEach(b=>b.onclick=()=>pane(b.dataset.pane));$('openSources').onclick=()=>{$('sourcesModal').classList.add('open');$('closeSources').focus();};$('closeSources').onclick=()=>{$('sourcesModal').classList.remove('open');$('openSources').focus();};$('sourcesModal').onclick=e=>{if(e.target===$('sourcesModal'))$('closeSources').click();};document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('configBackdrop').classList.contains('open'))closeConfig();$('sourcesModal').classList.remove('open');}if(e.key==='Tab'){const modal=$('sourcesModal').classList.contains('open')?$('sourcesModal'):$('configBackdrop').classList.contains('open')?$('configBackdrop'):null;if(modal){const focusable=[...modal.querySelectorAll('button,input,select')].filter(el=>!el.hidden&&el.offsetParent!==null&&!el.disabled),first=focusable[0],last=focusable.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}}});$('fullscreen').onclick=async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen();}catch{toast('当前预览窗口不支持全屏，可在浏览器新窗口打开');}};document.querySelectorAll('[data-product]').forEach(b=>b.onclick=()=>{state.product=b.dataset.product;state.productOffset=0;renderProducts();});$('quantityUnit').onchange=e=>{state.unit=e.target.value;state.productOffset=0;renderProducts();};renderWeather();$('sourceRows').innerHTML=[['试营业销售基数','10 天 · 零售 + 批发 ¥417,280.88','已核对',false],['类别销售报表','期间自选 · 正式表头待业务确认','样表已收到',true],['零售订单主表','9,711 张 · 9 家门店 · 10 天','已核对',false],['今日演示订单与明细','10月5日、6日 · 1,682张订单 / 5,068条明细 · ¥40,457.49','逐单对账一致',false],['批发订单主表','283 张 · 批发与退单按净额计算','已核对',false],['批发订单明细','284 行样本 · 51 张单据','部分样本',true],['商品价格与9月历史','19,745张主单 / 51,258条明细 · 3,059价格有效SKU · 17个中类','正式分类已核验',false],['月度实际与销售计划','6–9月完整实绩 · 10月截至5日 · 当月实际/预期对比 · 未来3个月计划','配置计划',true]].map(([name,note,status,pending])=>`<div class="source-row"><div><b>${name}</b><p>${note}</p></div><span class="source-status ${pending?'pending':''}">${status}</span></div>`).join('');initPoints();TodayOrderImport.init(DASHBOARD_DATA.stores,localISO,applyTodayOrderBatch);const headings=['部门编码','部门名称','含税销售额','销售数量','客流量'];$('mappingFields').innerHTML=[['门店 / 部门编码','部门编码'],['门店 / 部门名称','部门名称'],['含税销售金额','含税销售额']].map(([label,selected])=>`<div class="mapping-row"><span>${label}</span><select aria-label="${label}对应字段">${headings.map(h=>`<option ${h===selected?'selected':''}>${h}</option>`).join('')}</select></div>`).join('');$('importFile').onchange=e=>{const f=e.target.files[0];$('fileStatus').textContent=f?`已选择 ${f.name} · ${(f.size/1024).toFixed(1)} KB；下方字段为样表映射演示，未解析文件。`:'按实际字段映射，不依赖固定列位置。';$('importResult').textContent='';};$('previewImport').onclick=()=>{const a=new Date($('importStart').value+'T00:00:00Z'),b=new Date($('importEnd').value+'T00:00:00Z'),days=Math.round((b-a)/86400000)+1;if(!Number.isFinite(days)||days<=0){$('importResult').textContent='请填写有效的起止日期，结束日期不能早于开始日期。';return;}const selected=[...$('mappingFields').querySelectorAll('select')].map(x=>x.value);if(new Set(selected).size!==selected.length){$('importResult').textContent='不同业务字段不能映射到同一个来源字段。';return;}if(selected[2]!=='含税销售额'){$('importResult').textContent='销售金额不能使用销售数量或客流量；需确认选定字段的金额含义。';return;}$('importResult').innerHTML=`<p>期间首尾计入：<b>${days} 天</b><br>映射：${selected.join(' / ')}<br>导入规则：忽略空白与合计行，按部门编码匹配，展示基数 = 对应含税金额 ÷ ${days} × 45%。</p><p class="gold">这是映射规则预览，尚未解析或保存所选文件。</p>`;};renderStats();renderPart('配送地图',renderMonitor);renderPart('季度计划',renderPlans);renderPart('商品图表',renderProducts);renderPart('消费者画像',renderRadar);tickSalesClock();startTimers();window.addEventListener('pagehide',saveSalesProgress);document.addEventListener('visibilitychange',()=>{if(document.hidden)saveSalesProgress();else tickSalesClock();});window.addEventListener('pageshow',tickSalesClock);window.addEventListener('focus',tickSalesClock);window.addEventListener('storage',syncStorageData);window.addEventListener('resize',()=>Object.values(charts).forEach(c=>c.resize()));if(document.modelContext?.registerTool){const tools=[{name:'read_dashboard_preview',description:'Read the current prototype mode, source date, sales summary and local configuration.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute:()=>({mode:state.mode,sourceDate:state.day,sales:view().total,config:{...config},prototype:true})},{name:'set_dashboard_preview_mode',description:'Switch between historical real-data preview and historical order replay; no shared data is changed.',inputSchema:{type:'object',properties:{mode:{type:'string',enum:['real','demo']}},required:['mode'],additionalProperties:false},execute:input=>{if(!input||!['real','demo'].includes(input.mode))throw new Error('Invalid preview mode');setMode(input.mode);return {mode:state.mode,sales:view().total};}}];for(const tool of tools)try{Promise.resolve(document.modelContext.registerTool(tool)).catch(()=>{});}catch{}}}
   if(typeof DASHBOARD_DATA!=='undefined'&&typeof echarts!=='undefined')init();else{$('modeStatus').textContent='资源加载失败，请刷新页面';}

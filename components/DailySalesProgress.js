@@ -35,7 +35,11 @@
       }
       record.entries[slot] = entry;
       record.selection = { mode: state.mode, source: state.source, day: state.day };
-      try { this.storage.setItem(KEY, JSON.stringify(record)); this.available = true; }
+      try {
+        const encoded = JSON.stringify(record);
+        if (this.storage.getItem(KEY) !== encoded) this.storage.setItem(KEY, encoded);
+        this.available = true;
+      }
       catch (_) { this.available = false; }
       return entry;
     }

@@ -46,15 +46,15 @@
     const item = (type, label, text, emphasis, evidence, id) => ({ type, label, text, emphasis: emphasis || [], evidence,
       ruleId: id, ruleVersion, sources: [], dataQuality: snapshot.analysisError ? 'error' : 'limited' });
     const advice = [], x = snapshot;
-    if (finite(x.salesAmount) && Number.isSafeInteger(x.orderCount) && x.orderCount >= 0) advice.push(item('stock', '销售态势', '当前订单销售' + money(x.salesAmount) + '、累计' + count(x.orderCount) + '单；按当前订单观察销售结构。',
+    if (finite(x.salesAmount) && Number.isSafeInteger(x.orderCount) && x.orderCount > 0) advice.push(item('stock', '销售态势', '当前订单销售' + money(x.salesAmount) + '、累计' + count(x.orderCount) + '单。先核对金额最高订单的商品组合、数量与收银编码，明确主销规格和价签；不凭单一汇总调整长期排班。',
       ['销售' + money(x.salesAmount)], ['当前订单销售：' + money(x.salesAmount), '当前累计订单：' + count(x.orderCount) + '单'], 'summary_sales'));
     const top = x.topOrderStores[0];
-    if (top && finite(top.amount)) advice.push(item('plan', '门店贡献', top.name + '当前销售' + money(top.amount) + '；按当前订单观察门店贡献。', [top.name], [top.name + '当前销售：' + money(top.amount)], 'summary_store'));
+    if (top && finite(top.amount)) advice.push(item('plan', '门店贡献', top.name + '当前销售' + money(top.amount) + '。请该店核对热销SKU陈列与价签，班次交接明确收银和称重岗位分工。', [top.name], [top.name + '当前销售：' + money(top.amount)], 'summary_store'));
     const c = x.consumerMetrics.counts, w = x.consumerMetrics.window;
     if (w.start && w.end && c.identifiedCustomers > 0 && Number.isSafeInteger(c.repeatCustomers) && c.repeatCustomers >= 0 && c.repeatCustomers <= c.identifiedCustomers
       && c.purchaseOrders >= c.identifiedCustomers + c.repeatCustomers) {
       const rate = Number((c.repeatCustomers / c.identifiedCustomers * 100).toFixed(2));
-      advice.push(item('plan', '会员活跃', '统计窗口内' + count(c.repeatCustomers) + '人多次下单，占识别会员' + count(rate) + '%；观察重复购买表现。', ['多次下单'], ['多次下单会员：' + count(c.repeatCustomers) + '人', '多次下单会员占比：' + count(rate) + '%'], 'summary_member'));
+      advice.push(item('plan', '会员活跃', '统计窗口内' + count(c.repeatCustomers) + '人多次下单，占识别会员' + count(rate) + '%。由门店记录顾客自愿反馈的商品规格和结账问题，并在下班交接中逐项跟进。', ['多次下单'], ['多次下单会员：' + count(c.repeatCustomers) + '人', '多次下单会员占比：' + count(rate) + '%'], 'summary_member'));
     }
     return advice.slice(0, 4);
   }
@@ -64,7 +64,7 @@
   function fingerprint(snapshot) {
     const analysis = snapshot.analysis;
     return JSON.stringify([identity(snapshot), snapshot.salesAmount, snapshot.orderCount, snapshot.refundCount, snapshot.topOrderStores, snapshot.consumerMetrics,
-      analysis && [[analysis.freshness.status, analysis.freshness.last_order_time], analysis.metrics, analysis.data_quality, analysis.history, analysis.forecast, analysis.stores, analysis.categories, analysis.products,
+      analysis && [[analysis.freshness.status, analysis.freshness.last_order_time], analysis.metrics, analysis.operating_signals, analysis.data_quality, analysis.history, analysis.forecast, analysis.stores, analysis.categories, analysis.products,
         analysis.insights.filter(x => ['weather_context', 'warehouse_configuration'].includes(x.signal_type)).map(x => [x.metrics, x.evidence, x.factors])], snapshot.analysisError]);
   }
   function appendEmphasis(element, text, values) {
@@ -81,7 +81,7 @@
   function installMotion() {
     if (document.getElementById('decision-advice-motion')) return;
     const style = document.createElement('style'); style.id = 'decision-advice-motion';
-    style.textContent = '.advice.is-updating{animation:decision-advice-refresh 1.2s ease-out}.advice-body{flex:1;min-width:0;display:flex;flex-direction:column}.advice-evidence{display:block;font-size:11px;line-height:16px;margin-top:3px;cursor:pointer;color:#a7bbcc;white-space:normal}.advice-evidence summary{outline-offset:2px}.advice-evidence p{margin:4px 0;line-height:1.55}.advice-evidence[open]{max-height:90px;overflow:auto}.advice.is-updating strong{animation:decision-value-refresh 1.2s ease-out}@keyframes decision-advice-refresh{0%{background:#3fbed725}100%{background:transparent}}@keyframes decision-value-refresh{0%{color:#fff;text-shadow:0 0 12px #52daf5}100%{text-shadow:none}}@media(prefers-reduced-motion:reduce){.advice.is-updating,.advice.is-updating strong{animation:none}}';
+    style.textContent = '.advice.is-updating{animation:decision-advice-refresh 1.2s ease-out}.advice-body{flex:1;min-width:0;display:flex;flex-direction:column}.advice.is-updating strong{animation:decision-value-refresh 1.2s ease-out}@keyframes decision-advice-refresh{0%{background:#3fbed725}100%{background:transparent}}@keyframes decision-value-refresh{0%{color:#fff;text-shadow:0 0 12px #52daf5}100%{text-shadow:none}}@media(prefers-reduced-motion:reduce){.advice.is-updating,.advice.is-updating strong{animation:none}}';
     document.head.appendChild(style);
   }
   class DecisionAdvice {
@@ -95,12 +95,12 @@
       this.handleSave = () => this.saveConfig(); this.onRefresh = typeof options.onRefresh === 'function' ? options.onRefresh : () => {};
       this.refreshTimer = global.setInterval(() => { this.onRefresh(); this.refreshAdvice(); }, 60000);
       if (this.configElements.save) this.configElements.save.addEventListener('click', this.handleSave);
-      this.fillConfig(); installMotion(); this.status('本地事实规则；每60秒生成，语言模型未配置。');
+      this.fillConfig(); installMotion(); this.status('业务数据生成 · 每60秒更新。');
     }
     fillConfig() { const x = this.configElements; if (x.endpoint) x.endpoint.value = this.config.endpoint; if (x.enabled) x.enabled.checked = this.config.enabled; if (x.interval) x.interval.value = '60'; }
     status(text) { if (this.statusElement) this.statusElement.textContent = text; }
     saveConfig() {
-      if (this.offline) { this.status('本地事实规则每60秒生成；语言模型未配置。'); this.fillConfig(); return false; }
+      if (this.offline) { this.status('业务数据生成 · 每60秒更新。'); this.fillConfig(); return false; }
       const x = this.configElements;
       try { const next = { endpoint: normalizeEndpoint(x.endpoint ? x.endpoint.value : this.config.endpoint), enabled: x.enabled ? x.enabled.checked : this.config.enabled, interval: 60 };
         if (next.enabled && !next.endpoint) throw new Error('启用分析代理前请填写HTTPS地址');
@@ -141,7 +141,7 @@
       if (!this.config.enabled || !this.config.endpoint || !this.latest.analysis) {
         const freshness = this.latest.analysis && this.latest.analysis.freshness;
         const label = freshness && freshness.status === 'delayed' ? '数据延迟' : '当前数据';
-        this.status('本地事实规则 · ' + label + ' · 每60秒生成；语言模型未配置。');
+        this.status('业务数据生成 · ' + label + ' · 每60秒更新。');
       }
       this.schedule();
     }
@@ -151,19 +151,11 @@
         const card = document.createElement('div'); card.className = 'advice is-updating'; card.dataset.source = source;
         card.dataset.ruleId = item.ruleId || ''; card.dataset.ruleVersion = item.ruleVersion || ruleVersion;
         if (item.analysisId) card.dataset.analysisId = item.analysisId;
-        card.title = (source === 'ai' ? '语言模型解读' : source === 'remote-rules' ? '远端事实规则' : '本地事实规则') + ' · ' + snapshot.updatedAt;
+        card.title = '业务数据生成 · ' + snapshot.updatedAt;
         const label = document.createElement('span'); label.className = 'advice-label ' + item.type; label.appendChild(document.createTextNode(item.label));
         const text = document.createElement('span'); text.className = 'advice-text'; appendEmphasis(text, item.text, item.emphasis);
         const body = document.createElement('div'); body.className = 'advice-body'; body.appendChild(text); card.append(label, body);
-        const evidence = document.createElement('details'); evidence.className = 'advice-evidence';
-        const toggle = document.createElement('summary'); toggle.textContent = '查看依据'; evidence.appendChild(toggle);
-        const insight = snapshot.analysis && snapshot.analysis.insights.find(row => row.analysis_id === item.analysisId);
-        const evidenceRows = insight && global.SupplyChainAnalysis ? global.SupplyChainAnalysis.presentationEvidence(insight, snapshot.analysis) : item.evidence || [];
-        for (const row of evidenceRows) {
-          if (typeof row !== 'string' || presentationForbidden.test(row)) continue;
-          const paragraph = document.createElement('p'); paragraph.textContent = row; evidence.appendChild(paragraph);
-        }
-        body.appendChild(evidence); fragment.appendChild(card);
+        fragment.appendChild(card);
       }
       this.container.replaceChildren(fragment); this.container.dataset.analysisSource = source; this.container.dataset.updatedAt = snapshot.updatedAt;
       this.container.dataset.businessDate = snapshot.businessDate; this.container.dataset.sourceMode = snapshot.mode;
@@ -179,7 +171,7 @@
       const snapshot = this.latest, hash = this.latestHash, sequence = ++this.sequence;
       const controller = typeof global.AbortController === 'function' ? new global.AbortController() : null;
       const task = { controller, sequence }; this.inflight = task; this.lastRequestedAt = Date.now(); let timeout = null;
-      this.status('分析代理正在处理结构化事实；当前显示本地事实规则。');
+      this.status('正在更新业务分析；当前建议继续展示。');
       try {
         const deadline = new Promise((_, reject) => { timeout = global.setTimeout(() => { if (controller) controller.abort(); reject(new Error('分析请求超时')); }, 15000); });
         const call = (async () => {
@@ -196,7 +188,7 @@
         const result = await Promise.race([call, deadline]);
         if (this.destroyed || sequence !== this.sequence || hash !== this.latestHash) return;
         this.lastAI = { ...result, snapshot, hash }; this.render(result.advice, result.source, snapshot);
-        this.status((result.source === 'ai' ? '语言模型依据解读' : '远端事实规则；未声明语言模型') + ' · ' + snapshot.updatedAt + ' · 每60秒生成。');
+        this.status('业务数据生成 · ' + snapshot.updatedAt + ' · 每60秒更新。');
       } catch (error) {
         if (this.destroyed || sequence !== this.sequence || hash !== this.latestHash) return;
         this.lastAI = null; this.render(localAdvice(this.latest), 'local-rules', this.latest);

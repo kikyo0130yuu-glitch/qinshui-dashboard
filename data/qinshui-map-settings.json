@@ -88,5 +88,25 @@
   ],
   "surroundingDisplay": "county-boundary-only-muted",
   "mapZoomFactor": 1.3,
-  "mapZoomBasis": "1.3 times the previous full-fit geographic scale; viewport may crop surrounding county edges"
+  "mapZoomBasis": "1.3 times the previous full-fit geographic scale; viewport may crop surrounding county edges",
+  "storeDisplayCoordinates": {
+    "mode": "schematic",
+    "label": "门店示意位置",
+    "scope": "store",
+    "targetTown": "龙港镇",
+    "requestedTownAlias": "龙岗镇",
+    "coordinateSystem": "WGS84",
+    "datasetFile": "data/qinshui-store-display-points.json",
+    "revision": "store-display-v040",
+    "preferredOffsetKm": [
+      1,
+      3
+    ],
+    "maximumAnchorOffsetKm": 5,
+    "minimumStoreSeparationKm": 1.5,
+    "sourcePointSha256": "4beaa222052a6da74be659efcc03cf48b8c108c037518db5be77bc2056788441",
+    "sourceCoordinatesUnchanged": true,
+    "applyOnEveryPointDataRead": true,
+    "persistDisplayCoordinates": false
+  }
 }

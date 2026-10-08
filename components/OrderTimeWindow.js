@@ -18,6 +18,10 @@
       else if (time <= cutoff) eligible.push(event);
       else future++;
     }
+    // Imports need not be sorted. Use the occurrence time for both the current
+    // cutoff and display order without mutating the original source records.
+    eligible.sort((a,b) => seconds(a.processingTime || a.time || a.salesTime) - seconds(b.processingTime || b.time || b.salesTime)
+      || String(a.key || a.id || '').localeCompare(String(b.key || b.id || '')));
     return {eligible, future, missingTime, otherDate, businessDate, cutoffTime};
   }
   global.OrderTimeWindow = {seconds, select};

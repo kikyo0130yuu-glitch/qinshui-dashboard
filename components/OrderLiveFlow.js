@@ -10,5 +10,11 @@
       return second>=Math.max(0,cutoff-width);
     }).sort((a,b)=>(a.processingTime||a.time||a.salesTime).localeCompare(b.processingTime||b.time||b.salesTime)||(a.key||a.id).localeCompare(b.key||b.id));
   }
-  global.OrderLiveFlow={recent};
+  // Keep the latest receipts visible between arrivals. Displaying an existing
+  // receipt never counts it again; accounting remains in OrderTimeWindow.
+  function latest(events,now=Date.now(),limit=3){
+    const count=Number.isSafeInteger(limit)&&limit>0?limit:3;
+    return global.OrderTimeWindow.select(events,now).eligible.slice(-count).reverse();
+  }
+  global.OrderLiveFlow={recent,latest};
 })(window);
