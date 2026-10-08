@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
+  "algorithmVersion": "V1.1",
   "timeZone": "Asia/Shanghai",
   "source": {
     "fileName": "数字大屏-销售权重-只有权重版本.docx",
@@ -317,32 +318,46 @@
   },
   "trendLevels": [
     {
-      "min": 1.2,
-      "label": "明显偏强"
+      "min": 1.3,
+      "label": "消费旺盛",
+      "direction": "up-strong"
     },
     {
       "min": 1.05,
-      "label": "偏强"
+      "label": "消费偏强",
+      "direction": "up"
     },
     {
-      "min": 0.95,
-      "label": "基本平稳"
-    },
-    {
-      "min": 0.8,
-      "label": "偏弱"
+      "min": 0.85,
+      "label": "消费平稳",
+      "direction": "stable"
     },
     {
       "min": null,
-      "label": "明显偏弱"
+      "label": "消费偏弱",
+      "direction": "down"
     }
   ],
   "futureDays": 7,
   "startOffsetDays": 0,
   "carousel": {
     "pageSize": 3,
-    "sortField": "priceIndex",
-    "sortDirection": "descending"
+    "sortField": "categoryPriceCenter",
+    "sortDirection": "descending",
+    "includeEmptyCategories": false,
+    "hiddenMiddleCategoryCodes": [
+      "1101",
+      "9999",
+      "1004"
+    ],
+    "hiddenMiddleCategoryNames": [
+      "环岛类",
+      "默认分类",
+      "默认类别",
+      "临时采购"
+    ],
+    "hideNoPriceCategories": true,
+    "displayPolicyNote": "仅过滤展示；隐藏指定中类及无有效价格的中类，空大类跳过。全店价格计算与原始分类数据保持V1.1口径。"
   },
   "overlappingHolidayPolicy": "max",
   "categorySpecificWeights": false,

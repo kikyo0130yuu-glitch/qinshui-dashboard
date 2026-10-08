@@ -68,6 +68,12 @@
     return level ? level.label : null;
   }
 
+  function classifyTrendDirection(index, config) {
+    if (typeof index !== 'number' || !Number.isFinite(index)) return null;
+    const level = config?.trendLevels?.find(t => t.min === null || index >= t.min);
+    return level?.direction || null;
+  }
+
   function calcDemandIndex(weights, config) {
     validateParameters(config);
     for (const name of ['monthWeight', 'weekdayWeight', 'holidayWeight']) {
@@ -79,8 +85,8 @@
       + f.holidayFactor * (weights.holidayWeight - 1)).toFixed(12));
     const value = Number(Math.max(config.demandIndexLimits.min,
       Math.min(config.demandIndexLimits.max, raw)).toFixed(12));
-    return { rawDemandIndex: raw, demandIndex: value, isClamped: raw !== value,
-      trendLevel: classifyDemandTrend(value, config) };
+    return { rawDemandIndex: raw, demandIndex: value, finalDemandIndex: value, isClamped: raw !== value,
+      trendLevel: classifyDemandTrend(value, config), trendDirection: classifyTrendDirection(value, config) };
   }
 
   function getWeightForDate(dateString, config) {
@@ -141,14 +147,16 @@
     const overallDemandIndex = Number((days.reduce((sum, day) => sum + day.demandIndex, 0) / days.length).toFixed(12));
     return { asOfDate: asOfDate, timeZone: config.timeZone,
       startDate: days[0].date, endDate: days[days.length - 1].date,
-      days: days, next7Days: days, missingWeightCount: missingWeightCount,
+      days: days, next7Days: days, future7Days: days, missingWeightCount: missingWeightCount,
       hasMissingWeight: missingWeightCount > 0, warnings: warnings,
       overallDemandIndex: overallDemandIndex,
       overallTrendLevel: classifyDemandTrend(overallDemandIndex, config),
+      overallTrendDirection: classifyTrendDirection(overallDemandIndex, config),
+      demandIndexLimits: { ...config.demandIndexLimits },
       categorySpecificWeights: config.categorySpecificWeights === true,
       scopeNote: config.scopeNote || null };
   }
 
   return Object.freeze({ getShanghaiDate, addDays, getWeightForDate,
-    calcDemandIndex, classifyDemandTrend, calculateNext7Days });
+    calcDemandIndex, classifyDemandTrend, classifyTrendDirection, calculateNext7Days });
 });

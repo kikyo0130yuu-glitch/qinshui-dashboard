@@ -30,7 +30,7 @@
     }
   }catch{}
   const townMap=new QinshuiTownMap($('townMap'),pointData());
-  const monthWeights=[1,1.2,1.3,1.1,1,1.4,1.6];
+  const monthWeights=[1,1.2,1.3,1.1,1.16,1.4,1.6];
   let decisionAdvice=null,decisionBatchRevision=0,weatherFeed=null,consumerMetrics=null;
   let consumerReplayRun=0,consumerReplayBatch=null,consumerReplayStep=-1;
   const lastStoreValues=new Map();let storeFlow=null,storeSourceKey=null,salesForecast=null;
@@ -63,7 +63,7 @@
       `${businessLabel} <b>¥${shortMoney(v.retail)}</b> · 历史日销售区间 <b>¥${shortMoney(low)}–${shortMoney(high)}</b>`,
       holiday?`国庆假期权重 <b>${Number(config.holidayWeight).toFixed(2)}</b>（10.01–10.07）· 今日黄金周第 <b>${day}</b> 天`:`${month}月销售权重 <b>${weight===undefined?'待配置':Number(weight).toFixed(2)}</b>`,
       `后勤事业部在服 <b>${config.logistics} 家</b> 企事业单位 · 活跃网点占比 <b>${activeSiteRatio()}</b>`,
-      `品牌代理 <b>${config.brandCount} 个</b> · 日均出货约 <b>¥${shortMoney(config.brandDaily)}</b>`,
+      `品牌代理 <b>${config.brandCount} 个</b>`,
       `农产品上行 · <b>${config.cooperativeCount} 个</b> 合作社 · 冷链库区 <b>${storageMetric(storageCapacity().zoneCount,true)}个</b> · 当前存储 <b>${storageMetric(storageCapacity().storedTonnes)}吨</b>`,
       `周日销售权重 <b>${Number(config.sundayWeight).toFixed(1)}</b> · 晚高峰预计 <b>${config.peakStart}–${config.peakEnd}</b>`,
       `10月计划新增：便民店 <b>+${config.octStores} 家</b> · 后勤网点 <b>+${config.octLogistics} 个</b>`,
@@ -152,6 +152,7 @@
     return null;
   }
   function sumMoney(events){return events.reduce((sum,e)=>sum+(Number.isInteger(e.amountCents)?e.amountCents:Math.round(e.amount*100)),0)/100;}
+  function sumStoreSales(stores){return Object.values(stores).reduce((sum,value)=>sum+(Number.isFinite(value)?value:0),0);}
   function dataset(){
     const batch=activeBatch();
     if(batch){const events=batch.events,retail=sumMoney(events),stores=Object.fromEntries(DASHBOARD_DATA.stores.map(s=>[s.code,0]));events.forEach(e=>stores[e.code]+=e.amount);return {total:retail,retail,wholesale:0,stores,events,details:batch.details||[],orderCount:events.length,retailCount:events.length,isToday:true,simulated:batch.mode==='replay',date:batch.date};}
@@ -170,7 +171,7 @@
       const orders=clockWindow(day).eligible,retailOrders=orders.filter(e=>e.kind==='retail'),retail=sumMoney(retailOrders),wholesale=sumMoney(orders.filter(e=>e.kind==='wholesale'));
       const demo=state.mode==='demo',stores=Object.fromEntries(DASHBOARD_DATA.stores.map(s=>[s.code,demo?scaledBaseline(s.baseline):0]));
       for(const e of retailOrders)stores[e.code]=(stores[e.code]||0)+e.amount;
-      return {total:(demo?scaledBaseline(DASHBOARD_DATA.baseline):0)+retail+wholesale,retail:(demo?scaledBaseline(DASHBOARD_DATA.retailBaseline):0)+retail,wholesale:(demo?scaledBaseline(DASHBOARD_DATA.wholesaleBaseline):0)+wholesale,stores,events:orders.slice(-3).reverse(),count:orders.length,retailCount:retailOrders.length,average:retailOrders.length?retail/retailOrders.length:null};
+      return {total:(demo?scaledBaseline(DASHBOARD_DATA.baseline):0)+retail+wholesale,retail:sumStoreSales(stores),wholesale:(demo?scaledBaseline(DASHBOARD_DATA.wholesaleBaseline):0)+wholesale,stores,events:orders.slice(-3).reverse(),count:orders.length,retailCount:retailOrders.length,average:retailOrders.length?retail/retailOrders.length:null};
     }
     if(state.mode==='real')return {total:day.total,retail:day.retail,wholesale:day.wholesale,stores:day.stores,events:day.events.slice(-3).reverse(),count:day.orderCount,retailCount:day.retailCount,average:day.retailCount?day.retail/day.retailCount:null};
     const played=day.events.slice(0,state.replayed),retailOrders=played.filter(e=>e.kind==='retail'),retail=sumMoney(retailOrders),wholesale=sumMoney(played.filter(e=>e.kind==='wholesale')),stores=Object.fromEntries(DASHBOARD_DATA.stores.map(s=>[s.code,scaledBaseline(s.baseline)]));
@@ -316,17 +317,20 @@
     $('weightChart').setAttribute('aria-label','6月至10月园区销售与已有预期；'+(salesForecast?.status==='ok'?salesForecast.months.map(m=>m.month).join('、')+'销售计划':'未来销售预测暂缺'));
   }
   function renderProducts(){
-    const data=window.PRODUCT_PRICE_ANALYSIS_DATA,current=ProductPriceView.page(data,state.productOffset);
+    const data=window.PRODUCT_PRICE_ANALYSIS_DATA,current=ProductPriceView.page(data,state.productOffset,window.SALES_WEIGHT_CONFIG.carousel);
     const trend=ProductDemandTrend.calculateNext7Days(window.SALES_WEIGHT_CONFIG,Date.now());
+    const center=data?.store?.storePriceCenter,hasCenter=Number.isFinite(center);
     state.productRows=current?.items||[];
     $('quantityUnit').hidden=true;
-    $('productCategoryTitle').textContent=current?.bigCategoryName||'暂无有效价格数据';
+    $('productCategoryTitle').textContent=hasCenter?(current?.bigCategoryName||'暂无有效销售数据'):'暂无有效销售数据';
     $('productPageNumber').textContent=current?current.page+'/'+current.pageCount:'';
-    chart('productChart').setOption(ProductPriceView.buildOption(current,trend,colors),true);
-    $('productLegendBase').textContent='实算价格指数 · 上轴';
-    $('productRangeLegend').textContent='7天需求指数范围 · 下轴';
+    chart('productChart').setOption(ProductPriceView.buildOption(current,trend,colors,data?.store),true);
+    $('productLegendBase').textContent='成交价格重心（元）· 上轴';
+    $('productRangeLegend').textContent='7天需求范围 · 下轴';
+    $('productStoreCenter').textContent=hasCenter?'全店 ￥'+center.toFixed(2):'全店 --';
+    $('productCenterValue').textContent=hasCenter?'全店 ￥'+center.toFixed(2):'全店 --';
     $('productCenterLegend').hidden=false;
-    $('productChart').setAttribute('aria-label',`${current?.bigCategoryName||'无数据'}真实中类成交价格指数，全店成交价格重心${data.store.storePriceCenter.toFixed(2)}元，基准100；下方虚框为未来7天需求指数最小至最大范围`);
+    $('productChart').setAttribute('aria-label',`${current?.bigCategoryName||'无数据'}中类真实成交价格重心，全店成交价格重心${hasCenter?center.toFixed(2)+'元':'无有效销售数据'}；下方虚框为未来7天需求指数最小至最大范围`);
   }
   function renderRadar(){
     chart('radarChart').setOption(ConsumerVisuals.decorateRadarOption({animation:false,legend:{orient:'vertical',right:2,top:'center',textStyle:{color:colors.muted,fontSize:17},itemWidth:17,itemHeight:10},radar:{center:['40%','47%'],radius:'58%',indicator:['消费频次','购物篮大小','生鲜偏好','价格敏感度','复购意愿','晚间消费'].map(name=>({name,max:100})),axisName:{color:colors.text,fontSize:17},splitLine:{lineStyle:{color:colors.grid}},splitArea:{show:false},axisLine:{lineStyle:{color:colors.grid}}},series:[{type:'radar',symbolSize:5,data:[{name:'门店客群',value:[76,61,89,64,72,81],lineStyle:{color:colors.gold,width:3},itemStyle:{color:colors.gold},areaStyle:{color:colors.gold,opacity:.1}},{name:'后勤单位客群',value:[61,80,55,76,65,41],lineStyle:{color:colors.cyan,type:'dashed',width:3},itemStyle:{color:colors.cyan},areaStyle:{color:colors.cyan,opacity:.06}}]}]}),true);
