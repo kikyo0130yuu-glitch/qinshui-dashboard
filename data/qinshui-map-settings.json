@@ -45,9 +45,9 @@
   "radarSweepSeconds": 4.2,
   "routeWaveIntervalSeconds": 4,
   "visualRadarPreviewEnabled": false,
-  "radarCenterMode": "town",
+  "radarCenterMode": "dispatch",
   "radarCenterTown": "龙港镇",
-  "radarCenterBasis": "current-town-geometry-centroid",
+  "radarCenterBasis": "confirmed-warehouse-wgs84-coordinate",
   "mapPadding": {
     "left": 32,
     "top": 56,
@@ -61,7 +61,7 @@
     "symbol": "star",
     "color": "#FE0100",
     "displayName": "沁水供应链园区",
-    "mode": "schematic-label-at-town-radar-center"
+    "mode": "real-dispatch-origin"
   },
   "parkMarkerScale": 0.5,
   "publishedPointCount": 67,
@@ -77,5 +77,16 @@
   "radarLabelRadiusKm": 100,
   "radarLabelBasis": "user-request-retain-100km-caption-with-70km-actual-radius",
   "showDispatchRoutes": false,
-  "pointGlowMode": "radar-sweep-hit-only"
+  "pointGlowMode": "radar-sweep-hit-only",
+  "showSurroundingCounties": true,
+  "surroundingCoordinateSystem": "WGS84",
+  "surroundingCountyNames": [
+    "曲沃县",
+    "浮山县",
+    "翼城县",
+    "阳城县"
+  ],
+  "surroundingDisplay": "county-boundary-only-muted",
+  "mapZoomFactor": 1.3,
+  "mapZoomBasis": "1.3 times the previous full-fit geographic scale; viewport may crop surrounding county edges"
 }

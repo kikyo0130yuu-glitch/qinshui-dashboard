@@ -23,7 +23,7 @@
 
   // Presentation only: source mode, composition, amounts and proxy request provenance stay intact.
   function displayText(value) {
-    let text = value.replace(/[（(]\s*含基数\s*[）)]/g, '').replace(/演示|含基数/g, '');
+    let text = value.replace(/[（(]\s*含基数\s*[）)]/g, '').replace(/演示|含基数/g, '').replace(/预估/g, '计划');
     let previous;
     do { previous = text; text = text.replace(/[（(]\s*[）)]/g, ''); } while (text !== previous);
     return text.replace(/[ \t]{2,}/g, ' ').trim();
@@ -157,13 +157,14 @@
     const delivery = pick([`${deliveryBase}；按时窗合单并补签收时间。`, `${onTime}；按${active}点核对承诺/签收时间与线路。`]);
     const reserves = snapshot.reserves;
     const stockText = reserves.source === 'configuration'
-      ? pick([`储备配置：常温${finite(reserves.ambientTonnes) ? reserves.ambientTonnes : '—'}吨/冷链${finite(reserves.coldTonnes) ? reserves.coldTonnes : '—'}吨；补批次、库容与温控交接记录。`, `冷链${finite(reserves.coldTonnes) ? reserves.coldTonnes : '—'}吨为配置；按品类核对温区、交接及批次保质期。`])
+      ? pick([finite(reserves.ambientTonnes)?`储备配置：常温${reserves.ambientTonnes}吨/冷链${finite(reserves.coldTonnes) ? reserves.coldTonnes : '—'}吨；补批次、库容与温控交接记录。`
+        :`冷链当前存储${finite(reserves.coldTonnes) ? reserves.coldTonnes : '—'}吨为配置；补批次与温控交接记录。`, `冷链${finite(reserves.coldTonnes) ? reserves.coldTonnes : '—'}吨为配置；按品类核对温区、交接及批次保质期。`])
       : '库存批次与库容未接；先核对品类温区、可售量和装卸交接，再安排调拨。';
     const trend = snapshot.salesTrend, currentMonth = snapshot.businessDate.slice(0, 7), plans = [];
     const actual = trend.actual.find(row => row.month === currentMonth), forecast = trend.forecast.find(row => row.month === currentMonth);
     if (trend.currency === 'CNY' && actual && actual.periodStart && actual.periodEnd && actual.periodStart.slice(0, 7) === actual.month && actual.periodEnd.slice(0, 7) === actual.month && actual.periodStart <= actual.periodEnd && finite(actual.amount) && forecast && finite(forecast.amount)) {
       const period = actual.complete ? `${Number(actual.month.slice(5))}月实绩` : `${Number(actual.month.slice(5))}月${Number(actual.periodStart.slice(8))}–${Number(actual.periodEnd.slice(8))}日实绩`;
-      plans.push({ id: 'plan-monthly-period', text: `${period}${amount(actual.amount)}，整月预估${amount(forecast.amount)}；逐周核对渠道。`, emphasis: [amount(actual.amount), amount(forecast.amount)] });
+      plans.push({ id: 'plan-monthly-period', text: `${period}${amount(actual.amount)}，整月计划${amount(forecast.amount)}；逐周核对渠道。`, emphasis: [amount(actual.amount), amount(forecast.amount)] });
     }
     const completed = trend.actual.filter(row => row.complete === true && row.periodStart === row.month + '-01'
       && row.periodEnd === new Date(Date.UTC(Number(row.month.slice(0, 4)), Number(row.month.slice(5)), 0)).toISOString().slice(0, 10)
@@ -252,7 +253,7 @@
     constructor(container, options = {}) {
       if (!container || typeof container.replaceChildren !== 'function') throw new Error('决策建议容器不存在');
       this.container = container; this.statusElement = options.statusElement || null;
-      this.configElements = options.configElements || {}; this.config = readStoredConfig();
+      this.configElements = options.configElements || {};this.offline=options.offline===true; this.config = this.offline?{endpoint:'',enabled:false,interval:60}:readStoredConfig();
       this.latest = null; this.latestHash = ''; this.latestIdentity = ''; this.lastAI = null; this.sequence = 0;
       this.inflight = null; this.timer = null; this.lastRequestedAt = -Infinity; this.destroyed = false;
       this.handleSave = () => this.saveConfig();
@@ -274,6 +275,7 @@
     }
 
     saveConfig() {
+      if(this.offline){this.status('离线演示每60秒生成本地规则建议，不请求远端AI。');this.fillConfig();return false;}
       const fields = this.configElements;
       try {
         const next = { endpoint: normalizeEndpoint(fields.endpoint ? fields.endpoint.value : this.config.endpoint),
@@ -333,6 +335,7 @@
     }
 
     schedule() {
+      if(this.offline)return;
       if (this.destroyed || !this.latest || !this.config.enabled || !this.config.endpoint || this.inflight) return;
       if (typeof global.fetch !== 'function') { this.status('浏览器不支持分析请求；已回退本地规则建议。'); return; }
       if (this.timer !== null) return;
@@ -342,6 +345,7 @@
     }
 
     async request() {
+      if(this.offline)return;
       if (this.destroyed || this.inflight || !this.config.enabled || !this.latest) return;
       const snapshot = this.latest, hash = this.latestHash, sourceIdentity = this.latestIdentity;
       const sequence = ++this.sequence;

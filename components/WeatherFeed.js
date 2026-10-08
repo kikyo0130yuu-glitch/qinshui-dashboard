@@ -2,6 +2,7 @@
   'use strict';
 
   const DEFAULT_ENDPOINT = 'data/weather-latest.json';
+  const PUBLIC_SNAPSHOT_ENDPOINT = 'https://kikyo0130yuu-glitch.github.io/qinshui-dashboard/data/weather-latest.json';
   const STORAGE_KEY = 'qinshui-weather-feed-v1';
   const RULE_VERSION = 'weather-rules-v1';
   const own = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
@@ -112,7 +113,7 @@
 
   function interval(value) {
     const number = Number(value);
-    return Number.isFinite(number) ? Math.max(60000, Math.min(3600000, Math.round(number))) : 600000;
+    return Number.isFinite(number) ? Math.max(60000, Math.min(3300000, Math.round(number))) : 300000;
   }
 
   function maximumWind(value) {
@@ -251,10 +252,10 @@
     constructor(container, options = {}) {
       if (!container || typeof container.querySelector !== 'function') throw new Error('天气容器不存在');
       this.container = container; this.document = container.ownerDocument;
-      this.options = options; this.statusElement = options.statusElement || null; this.configElements = options.configElements || {};
+      this.options = options; this.offline=options.offline===true;this.statusElement = options.statusElement || null; this.configElements = options.configElements || {};
       this.renderChart = typeof options.renderChart === 'function' ? options.renderChart : () => {};
       this.onStatus = typeof options.onStatus === 'function' ? options.onStatus : () => {};
-      this.config = { endpoint: DEFAULT_ENDPOINT, enabled: true, intervalMs: 600000 };
+      this.config = { endpoint: DEFAULT_ENDPOINT, enabled: true, intervalMs: 300000 };
       this.snapshot = null; this.sourceKind = null; this.latestHash = ''; this.chartRendered = false;
       this.destroyed = false; this.sequence = 0; this.inflight = null; this.pollTimer = null; this.motionTimer = null;
       this.adviceTimer=null;this.adviceOffset=0;this.adviceItems=[];
@@ -292,12 +293,14 @@
             endpoint: normalizeEndpoint(saved.endpoint), enabled: saved.enabled !== false, intervalMs: interval(saved.intervalMs)
           };
         }
+        if(this.config.endpoint===DEFAULT_ENDPOINT&&options.fallbackEndpoint)this.config.endpoint=normalizeEndpoint(options.fallbackEndpoint);
         this.config = {
           endpoint: normalizeEndpoint(own(options, 'endpoint') ? options.endpoint : this.config.endpoint),
           enabled: own(options, 'enabled') ? options.enabled !== false : this.config.enabled,
           intervalMs: interval(own(options, 'intervalMs') ? options.intervalMs : this.config.intervalMs)
         };
       } catch (error) { configError = error.message; this.config.enabled = false; }
+      if(this.offline){this.config={endpoint:DEFAULT_ENDPOINT,enabled:false,intervalMs:300000};this.autoRefresh=false;}
       this.handleSave = () => this.saveConfig();
       if (this.configElements.save) this.configElements.save.addEventListener('click', this.handleSave);
       this.fillConfig(); this.render(null, 'none', false); this.setStatus('empty', '暂无真实天气；等待天气汇总快照。');
@@ -390,7 +393,7 @@
         detail.textContent = snapshot ? '湿度 ' + valueText(snapshot.current.humidityPercent, '%') + ' · '
           + (snapshot.current.windDirectionText || '风向—') + (snapshot.current.windScale ? ' ' + snapshot.current.windScale + '级' : ' 风力—') : '湿度 — · 风向/风力 —';
         const condition = snapshot && snapshot.current.conditionText || '实况暂无数据';
-        elements.current.replaceChildren(this.document.createTextNode(condition), detail);
+        elements.current.replaceChildren(this.document.createTextNode((snapshot?.location.name==='沁水县'?'沁水':snapshot?.location.name||'沁水')+' · '+condition), detail);
         elements.current.title = condition + '\n' + detail.textContent;
       }
       renderGlyph(elements.glyph, snapshot && snapshot.current.conditionCode, this.document);
@@ -422,6 +425,7 @@
 
     configure(next = {}) {
       if (this.destroyed) return false;
+      if(this.offline){this.setStatus('offline','离线演示使用内置天气快照，恢复互联网后才能获取新天气。');this.fillConfig();return false;}
       try {
         const config = {
           endpoint: normalizeEndpoint(own(next, 'endpoint') ? next.endpoint : this.config.endpoint),
@@ -487,8 +491,9 @@
       }
     }
 
-    async refresh() {
-      if (this.destroyed || !this.config.enabled) return false;
+    async refresh(options = {}) {
+      if(this.offline){this.setStatus('offline','离线演示保留天气快照与原始获取时间。');return false;}
+      if (this.destroyed || (!this.config.enabled && !options.manual)) return false;
       if (this.inflight) return this.inflight.promise;
       this.clearPoll();
       const endpoint = this.config.endpoint;
@@ -518,7 +523,7 @@
         try {
           const payload = await transport;
           if (this.destroyed || sequence !== this.sequence) return false;
-          return this.update(payload, endpoint === DEFAULT_ENDPOINT ? 'snapshot-file' : 'backend');
+          return this.update(payload, [DEFAULT_ENDPOINT,PUBLIC_SNAPSHOT_ENDPOINT].includes(endpoint) ? 'snapshot-file' : 'backend');
         } catch (error) {
           if (this.destroyed || sequence !== this.sequence) return false;
           const detail = timedOut ? '天气汇总读取超时' : /^HTTP \d+$|^天气汇总/.test(error.message || '') ? error.message : '天气汇总读取失败';

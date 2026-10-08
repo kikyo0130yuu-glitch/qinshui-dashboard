@@ -16,7 +16,7 @@
     "fittedModel": false,
     "llmUsed": false,
     "uncertaintyRangeProvided": false,
-    "note": "逐月预估为用户授权配置；不执行旧20%增长规则或历史下调记录。"
+    "note": "逐月计划为用户授权配置；不执行旧20%增长规则或历史下调记录。"
   },
   "currentMonth": {
     "month": "2026-10",

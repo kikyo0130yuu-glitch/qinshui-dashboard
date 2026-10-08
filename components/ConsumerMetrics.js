@@ -121,7 +121,7 @@
   class ConsumerMetrics {
     constructor(container, options = {}) {
       if (!container || typeof container.querySelector !== 'function') throw new Error('消费者指标容器不存在');
-      this.container = container; this.document = container.ownerDocument; this.persistConfig = options.persistConfig !== false;
+      this.container = container; this.document = container.ownerDocument;this.offline=options.offline===true; this.persistConfig = options.persistConfig !== false;
       this.statusElement = options.statusElement || null; this.configElements = options.configElements || {};
       this.expectedWindowDays = expectedDays(options.expectedWindowDays); this.allowHistoricalWindow = options.allowHistoricalWindow === true;
       this.precision = own(options, 'precision') ? options.precision : 1;
@@ -145,6 +145,7 @@
           enabled: own(options, 'enabled') ? options.enabled !== false : this.config.enabled,
           intervalMs: interval(own(options, 'intervalMs') ? options.intervalMs : this.config.intervalMs) };
       } catch (error) { configError = error.message; this.config.enabled = false; }
+      if(this.offline){this.config={endpoint:DEFAULT_ENDPOINT,enabled:false,intervalMs:60000};this.autoRefresh=false;}
       installStyle(this.document);
       this.handleSave = () => this.saveConfig();
       if (this.configElements.save) this.configElements.save.addEventListener('click', this.handleSave);
@@ -279,6 +280,7 @@
     }
 
     configure(next = {}) {
+      if(this.offline){this.setStatus('offline','离线演示使用内置会员汇总与订单回放，停止在线读取。');this.fillConfig();return false;}
       if (this.destroyed) return false;
       try {
         const config = { endpoint: normalizeEndpoint(own(next, 'endpoint') ? next.endpoint : this.config.endpoint), enabled: own(next, 'enabled') ? next.enabled !== false : this.config.enabled,
@@ -306,6 +308,7 @@
     }
 
     refresh() {
+      if(this.offline)return Promise.resolve(false);
       if (this.destroyed) return Promise.resolve(false);
       this.checkExpiry();
       if (!this.config.enabled) return Promise.resolve(false);

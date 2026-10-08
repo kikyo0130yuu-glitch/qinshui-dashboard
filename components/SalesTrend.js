@@ -74,7 +74,7 @@
         : row.actual!=null&&row.estimate!=null&&maximum>0&&(row.estimate-row.actual)/maximum>.03&&(row.estimate-row.actual)/maximum<.23?{distance:28}:undefined })),
       label: { show: true, position: 'top', distance: configuredForecast ? 18 : 10, color: barColor, fontSize: 16, formatter: params => formatPlotAmount(params.value) }
     };
-    const existingName = hasForecast ? '已有预期' : '销售预估';
+    const existingName = hasForecast ? '已有预期' : '销售计划';
     const existingLine = { name: existingName, type: 'line', connectNulls: false, data: rows.map(row => toPlotAmount(row.estimate)), symbol: 'circle', symbolSize: 7,
       lineStyle: { color: palette.gold, width: 2, type: 'solid' }, itemStyle: { color: palette.gold }, z: 5 };
     const series = [actualSeries, existingLine];
@@ -117,8 +117,8 @@
           const lines = [title];
           if (row.actual != null && !row.partial) lines.push('实际销售额：' + formatAmount(row.actual));
           else if (row.actual == null && !row.prediction) lines.push('实际销售额：—');
-          if (row.estimate != null) lines.push((hasForecast?'已有预期':'销售预估')+'：' + formatAmount(row.estimate));
-          else if (!row.prediction) lines.push('销售预估：—');
+          if (row.estimate != null) lines.push((hasForecast?'已有预期':'销售计划')+'：' + formatAmount(row.estimate));
+          else if (!row.prediction) lines.push('销售计划：—');
           if (row.prediction) {
             if (configuredForecast) {
               lines.push((row.month === forecast.currentMonth?.month ? '当月预测：' : '预测销售额：') + formatAmount(row.prediction.pointSalesCny));

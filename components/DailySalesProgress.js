@@ -30,7 +30,7 @@
       const entry = { signature: sourceSignature, replayed: Math.min(events.length, Math.max(0, state.replayed)),
         flowCursor: state.flowCursor, flowTick: state.flowTick, flowEpoch: state.flowEpoch };
       // An older tab may rotate its ledger, but must not overwrite newer sales.
-      if (previous?.signature === sourceSignature && valid(previous,events.length) && previous.replayed > entry.replayed) {
+      if (state.accumulationPolicy !== 'clock-cutoff' && previous?.signature === sourceSignature && valid(previous,events.length) && previous.replayed > entry.replayed) {
         Object.assign(entry, { replayed: previous.replayed, flowCursor: previous.flowCursor, flowTick: previous.flowTick, flowEpoch: previous.flowEpoch });
       }
       record.entries[slot] = entry;

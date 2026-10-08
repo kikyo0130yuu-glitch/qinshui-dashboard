@@ -47,7 +47,7 @@
         anchorSource: currentRow && currentRow.estimateRevision ? currentRow.estimateRevision.source : 'user-provided-expectation',
         asOfDate, observedThrough: observedThrough(monthlySales.months, asOfDate), horizonMonths,
         fittedModel: false, llmUsed: false, uncertaintyRangeProvided: false,
-        note: '逐月预估为用户授权配置；不执行旧20%增长规则或历史下调记录。' },
+        note: '逐月计划为用户授权配置；不执行旧20%增长规则或历史下调记录。' },
       currentMonth: null, months: []
     };
     if (anchorSalesCny == null) { result.reason = 'current-month-estimate-missing'; return result; }

@@ -1,0 +1,137 @@
+{
+  "sourceFile": "9月24日到10月3日门店试营业销售数据.xlsx",
+  "sha256": "a7e86e47f986781968866be030854602c019a3930654d81b8546684a5c43fed8",
+  "sheet": "9月24日到10月3日门店试营业销售数据",
+  "period": {
+    "start": "2026-09-24",
+    "end": "2026-10-03",
+    "inclusiveDays": 10
+  },
+  "factor": 0.45,
+  "amountColumn": "F 含税销售额",
+  "codeColumn": "B 部门编码",
+  "nameColumn": "C 部门名称",
+  "excludedStoreNames": [
+    "低温配送",
+    "新常温配送中心"
+  ],
+  "totalSourceAmountCents": 41728088,
+  "storeSourceAmountCents": 27964304,
+  "nonStoreSourceAmountCents": 13763784,
+  "unscaledDailyTotal": 41728.088,
+  "scaledDailyTotal": 18777.6396,
+  "scaledStoreDailyTotal": 12583.9368,
+  "yesterdaySalesCny": 49823.87,
+  "rows": [
+    {
+      "sourceRow": 2,
+      "code": "1000",
+      "name": "总部展示店",
+      "sourceAmountCents": 149340,
+      "sourceAmount": 1493.4,
+      "dailyAmount": 149.34,
+      "scaledDailyAmount": 67.203,
+      "displayAsStore": true
+    },
+    {
+      "sourceRow": 3,
+      "code": "1001",
+      "name": "山水文苑店",
+      "sourceAmountCents": 868029,
+      "sourceAmount": 8680.29,
+      "dailyAmount": 868.029,
+      "scaledDailyAmount": 390.61305,
+      "displayAsStore": true
+    },
+    {
+      "sourceRow": 4,
+      "code": "1002",
+      "name": "锦天金域府店",
+      "sourceAmountCents": 877488,
+      "sourceAmount": 8774.88,
+      "dailyAmount": 877.488,
+      "scaledDailyAmount": 394.8696,
+      "displayAsStore": true
+    },
+    {
+      "sourceRow": 5,
+      "code": "1003",
+      "name": "示范店",
+      "sourceAmountCents": 568429,
+      "sourceAmount": 5684.29,
+      "dailyAmount": 568.429,
+      "scaledDailyAmount": 255.79305,
+      "displayAsStore": true
+    },
+    {
+      "sourceRow": 6,
+      "code": "1004",
+      "name": "沁水大医院店",
+      "sourceAmountCents": 767789,
+      "sourceAmount": 7677.89,
+      "dailyAmount": 767.789,
+      "scaledDailyAmount": 345.50505,
+      "displayAsStore": true
+    },
+    {
+      "sourceRow": 7,
+      "code": "1005",
+      "name": "山水和园店",
+      "sourceAmountCents": 1175652,
+      "sourceAmount": 11756.52,
+      "dailyAmount": 1175.652,
+      "scaledDailyAmount": 529.0434,
+      "displayAsStore": true
+    },
+    {
+      "sourceRow": 8,
+      "code": "1006",
+      "name": "丁香园店",
+      "sourceAmountCents": 902999,
+      "sourceAmount": 9029.99,
+      "dailyAmount": 902.999,
+      "scaledDailyAmount": 406.34955,
+      "displayAsStore": true
+    },
+    {
+      "sourceRow": 9,
+      "code": "1007",
+      "name": "新柳苑店",
+      "sourceAmountCents": 940842,
+      "sourceAmount": 9408.42,
+      "dailyAmount": 940.842,
+      "scaledDailyAmount": 423.3789,
+      "displayAsStore": true
+    },
+    {
+      "sourceRow": 10,
+      "code": "2001",
+      "name": "梅河店",
+      "sourceAmountCents": 21713736,
+      "sourceAmount": 217137.36,
+      "dailyAmount": 21713.736,
+      "scaledDailyAmount": 9771.1812,
+      "displayAsStore": true
+    },
+    {
+      "sourceRow": 11,
+      "code": "9002",
+      "name": "低温配送",
+      "sourceAmountCents": 13245984,
+      "sourceAmount": 132459.84,
+      "dailyAmount": 13245.984,
+      "scaledDailyAmount": 5960.6928,
+      "displayAsStore": false
+    },
+    {
+      "sourceRow": 12,
+      "code": "9003",
+      "name": "新常温配送中心",
+      "sourceAmountCents": 517800,
+      "sourceAmount": 5178.0,
+      "dailyAmount": 517.8,
+      "scaledDailyAmount": 233.01,
+      "displayAsStore": false
+    }
+  ]
+}

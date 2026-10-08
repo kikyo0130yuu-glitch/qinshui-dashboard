@@ -77,6 +77,10 @@
       if (!this.error) {
         this.towns = data.towns.features.map(f => this.normalize(f));
         this.county = this.normalize(data.county.features[0]);
+        const surrounding=data.surroundingCounties;
+        this.surroundingCounties=surrounding?.metadata?.coordinateSystem==='WGS84'&&surrounding.metadata.status==='verified'
+          &&Array.isArray(surrounding.features)&&surrounding.features.every(feature=>polygonOK(feature.geometry))
+          ?surrounding.features.map(feature=>this.normalize(feature)):[];
         this.china = data.china?.metadata?.coordinateSystem === 'WGS84' && data.china.features?.every(f => polygonOK(f.geometry))
           ? { type: 'FeatureCollection', features: data.china.features.map(f => this.normalize(f)) } : null;
         this.pointInfo = (this.pointError ? [] : data.points).map(point => {
@@ -316,7 +320,8 @@
       this.radarGeometry=null;this.radarPreviewCoordinate=null;this.nationalProjection=null;this.radarCenterMarker=null;this.sweepClockId=null;
       const padding=this.data.settings.mapPadding||{left:48,top:112,right:48,bottom:82};
       const extent=[[padding.left,padding.top],[width-padding.right,height-padding.bottom]];
-      const extentFeatures = {type:'FeatureCollection',features:[this.county,...this.towns,
+      const visibleSurroundings=this.data.settings.showSurroundingCounties===false?[]:this.surroundingCounties;
+      const extentFeatures = {type:'FeatureCollection',features:[this.county,...this.towns,...visibleSurroundings,
         ...(this.pointInfo.length?[{type:'Feature',properties:{},geometry:{type:'MultiPoint',coordinates:this.pointInfo.map(info=>[info.point.longitude,info.point.latitude])}}]:[]),
         ...(this.data.settings.fitRadarExtent&&circle?[{type:'Feature',geometry:circle,properties:{}}]:[])]};
       const projection = d3.geoMercator().fitExtent(extent, extentFeatures);
@@ -334,6 +339,12 @@
         const ratio=Math.min(...ratios);
         if(ratio<1){projection.scale(projection.scale()*Math.max(.01,ratio));recenter();}
       }
+      this.baseProjectionScale=projection.scale();
+      const zoom=this.data.settings.mapZoomFactor;
+      if(Number.isFinite(zoom)&&zoom>0&&zoom<=3){
+        projection.scale(projection.scale()*zoom);
+        if(anchor&&this.data.settings.centerRadarInViewport){const xy=projection(anchor.coordinate),t=projection.translate();projection.translate([t[0]+width/2-xy[0],t[1]+height/2-xy[1]]);}
+      }
       this.projection = projection;
       const path = d3.geoPath(projection);
       const svg = node('svg', { viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': '全国地理底图叠加沁水县12乡镇与经纬度业务点位', class: 'town-map-svg' });
@@ -344,6 +355,16 @@
       const geography=node('g',{'clip-path':`url(#${this.uid}-viewport)`});
       const terrainActive=this.drawTerrain(geography,width,height);
       if(!terrainActive)this.drawNational(geography,projection,path);
+      const surroundingLayer=node('g',{class:'surrounding-counties','aria-label':'周边四县，仅县界'});
+      const placed=[{x0:24,x1:650,y0:0,y1:130},{x0:width-370,x1:width,y0:0,y1:48}];
+      for(const feature of visibleSurroundings){
+        const boundary=node('path',{d:path(feature),class:'surrounding-county-boundary','data-county-name':feature.properties.name});
+        boundary.append(node('title',{},feature.properties.name));surroundingLayer.append(boundary);
+        const label=this.placeLabel(feature,path,projection,placed);
+        if(label){placed.push(label.box);surroundingLayer.append(node('text',{x:label.xy[0],y:label.xy[1],class:'surrounding-county-label',
+          'text-anchor':'middle','dominant-baseline':'central',style:`font-size:${label.size}px`},feature.properties.name));}
+      }
+      geography.append(surroundingLayer);
       geography.append(node('path',{d:path(this.county),class:'county-shadow'}),node('path',{d:path(this.county),class:'county-outline'}));
       const regions = node('g',{class:'town-regions'});
       const palette = ['#074b7e', '#0b65a1', '#126fa6', '#185c85', '#246d9e', '#164f8d', '#235a98', '#285f89', '#347598', '#205677', '#2d678c', '#17577e'];
@@ -406,10 +427,10 @@
         markers.append(marker);
       }
       geography.append(markers);this.drawRoutes(geography,projection,origin); svg.append(geography);
-      const label=node('text',{x:width-24,y:32,'text-anchor':'end',class:'county-map-label'},'沁水县 · 12乡镇行政区域');
+      const label=node('text',{x:width-24,y:32,'text-anchor':'end',class:'county-map-label'},visibleSurroundings.length?'沁水县 · 周边四县':'沁水县 · 12乡镇行政区域');
       svg.append(label);
       if(terrainActive&&this.data.settings.showTerrainRegistrationNote!==false)svg.append(node('text',{x:width-24,y:height-48,'text-anchor':'end',class:'terrain-caption'},'地形背景未配准'));
-      svg.setAttribute('aria-label','沁水县12乡镇真实行政边界、龙港镇中心与经纬度业务点位'+(terrainActive?'；地形背景为未配准装饰图':''));
+      svg.setAttribute('aria-label','沁水县12乡镇真实行政边界、周边县界、龙港镇中心与经纬度业务点位'+(terrainActive?'；地形背景为未配准装饰图':''));
       this.container.append(svg);
       if (!origin&&this.data.settings.showStatusNotes!==false) {
         const note = document.createElement('div'); note.className = 'map-point-note';

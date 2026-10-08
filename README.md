@@ -1,39 +1,37 @@
-# 沁水县供应链智慧运营指挥大屏 · V0.32
+# 沁水县供应链智慧运营指挥大屏 · V0.36
 
-2026-10-07更新。当天销售累计进度按业务日期与订单批次保存在当前浏览器，刷新恢复今日销售、门店排行与流水。更换浏览器/电脑不共享进度。流水标题改为“销售流水 · 订单情况”；天气联动及智慧决策每60秒重算，使用当天日期。决策为本地规则，配置远端AI代理后按一分钟调用；天气API仍按日获取并保留来源时间。实际雷达半径70公里，文字按用户要求保留100km；取消所有业务连线与持续点位发光，扫过时才短暂发光。门店金额轴改为0、200、500、1000、3000、8000、1.5万，采用非等距分段刻度，让小额门店更明显。刻度间距接近，较大区间稍宽；超过1.5万元柱条封顶，完整金额在上方更新，销售合计和订单联动保持。月度图隐藏本期截止日期、当月实际金额标签和完成率，源金额与日期不变。价格指数保留，未来7天金额/数量样例按品类缩小3至6倍，仅为原型参数。
+本版新增：截至当前北京时间的订单直接汇总，未来订单到时才计入，流水只轮换已发生记录。园区真实点居中、地图投影放大30%，超额门店金额置于柱上方最右侧。天气主模块显示沁水，在线页面每5分钟及手动请求汇总地址；真正实时上游需开发部署另附天气服务包，默认静态快照仍每日更新。
 
-天气已实测取得10月7日实况和7天预报。联动建议包含需求/农业/配送/仓储/采购五类、约10条，每60秒用可用最新预报重算并轮换两条，鼠标停留暂停。右下智慧决策建议每60秒按当天最新汇总生成，远端AI未配置时为本地规则。
+沿用：三份ERP表已只读核验，F列合计÷10×45%；整单K列累计一次，实物R列逐单对账，销售部门经流水号关联真实门店。内置原始日期10月5–6日订单每日映射为当天；刷新按当前时刻重算，流水轮换不重复累计。
 
-## 更新已有GitHub Pages
+本版保留：界面“预估”统一改为“计划”。右上角通过network-health.js实际检查当前大屏站点；本地文件检查本项目公网Pages地址。每15秒检测一次，响应≥1.8秒显示黄色；6秒超时显示红色，5/10/20/30秒间隔重试时显示橙色，恢复绿字保留8秒。离线本地演示不依赖心跳成功，网络异常不重置今日累计。站点可达不表示ERP、天气、AI接口已更新。
 
-仓库：https://github.com/kikyo0130yuu-glitch/qinshui-dashboard ，main分支、根目录网页。
+本版保留：分拣拆整13000个、地堆区2050个、冷链库区数10个、当前存储量53.2吨。四个指标分开保存并迁移旧配置，库区数不作为吨位或吨位上限。
 
-1. GitHub Desktop选择原仓库，Fetch origin / Pull origin，Repository → Show in Finder。
-2. 将本包index.html、point-collector.html、所有.js、assets、components、data、automation整套复制到仓库根目录。合并隐藏.github/workflows/qinshui-weather-pages.yml（Finder按Command + Shift + .），保留.git、CNAME和其它原有文件。不要额外套dist目录。
-3. 首次添加automation/request-ledger.json，已初始化2026年10月发生的4次本地请求。以后更新务必保留仓库中累积计数，不能用旧包覆盖或删除该文件。
-4. Commit to main → Push origin。Settings → Pages → Source选择GitHub Actions。
-5. Settings → Secrets and variables → Actions添加QWEATHER_API_HOST、QWEATHER_DEVELOPER_ID、QWEATHER_PROJECT_ID、QWEATHER_CREDENTIAL_ID、QWEATHER_PRIVATE_KEY这5个Secrets。使用已匹配公钥的原Ed25519私钥，不重新生成。私钥只填Secret，不放仓库。本包不含私钥。
-6. Actions选择Qinshui daily weather and Pages → Run workflow → main，核对刷新和部署成功后继续用原网址。
+使用用户提供的曲沃、浮山、翼城、阳城四份真实县界，SRID4326证据与Geometry有效性已检查。沁水县高亮、保留自身12乡镇；周边四县无填充且弱化，只画县界，未加载它们的乡镇。所有区域与67个业务点共用投影，园区中心70公里扫射仍保留100km提示。业务连线关闭，点位只在扫过时发光；所有区域和业务点共享放大30%的同一投影。
 
-本地交付的《GitHub-天气每日更新配置步骤.md》列有准确入口、字段值和私钥查找方法。本次未代为推送或配置GitHub Secrets，工作流尚需上述设置启用。
+## 已发布仓库：以后只更新网页
 
-## 每日刷新
+使用“GitHub-Pages-更新包-V0.36-2026-10-08.zip”。这是常规网页更新包，特意不含.github、automation、.gitignore、weather-data.js和data/weather-latest.json，防止覆盖既有工作流、请求计数、天气快照和仓库规则。
 
-计划每天北京时间07:17（UTC 23:17），一次取实况与7天预报，最多2次天气请求。浏览器每10分钟只读公开快照，不调用和风；普通Push只部署，不请求天气。工作流会在同一次运行中发布Pages，避免机器人提交无法触发后续部署的问题。
+1. GitHub Desktop选择qinshui-dashboard，先Fetch origin / Pull origin。
+2. Repository → Show in Finder，将常规包解压后的网页文件及assets/components/data合并到仓库根目录。保留.git、CNAME、已有.github、automation和天气文件。不要额外套dist目录。源GeoJSON原件仅作溯源，现有.gitignore若忽略raw目录，可保留原规则；渲染使用已处理文件和map-data.js。
+3. Commit to main → Push origin，等现有Pages工作流成功，然后强制刷新网页，保留网站数据以继续当天累计。network-health.js必须随页面一起上传；该文件缺失、旧站点未部署或托管路径错误都会显示连接中断。
 
-项目每月上限100次，按用户确认仅本项目调用及本地持久计数计算；未读取和风控制台用量。每次先提交请求预留再调用，失败/取消不退回计数，无自动重试。源失败保留天气快照和原时间，任务报告失败；不以底部页面时钟伪造天气更新。以后新增其他和风消费者需重核共享免费预算。
+如果之前Secrets、GitHub Actions发布来源和天气任务首次运行已成功，以上更新无需重复设置密钥、重新生成JWT或重新建任务；普通Push沿用现有工作流部署，不额外调用天气。只在凭据变更、任务报错或尚未完成首次初始化时再检查设置。
 
-工作流仅将index.html、point-collector.html、assets、components、data和根目录.js部署到Pages，automation和.github不作为站点资源上传。接口认证只在GitHub runner内，快照无凭据。
+完整“GitHub-Pages-发布包.zip”保留首次建站所需任务模板，适用于初始化。已经运行的仓库不要用其中旧automation/request-ledger.json或旧天气文件覆盖在线累计状态。本次未代为推送远端，也未读取Secrets或确认远端最新运行状态。
 
-## 保留的地图与业务口径
+## 完全断网演示
 
-画布3268×1290，三列32% / 36% / 32%。地图保留67个用户确认高德坐标转换的真实业务点：9门店、57后勤、1园区；业务连线与双向流通关闭，雷达扫过点位时短暂发光。7条缺坐标仍待补，3组重合记录保留。交通运输事业发展中心、苏庄大食堂、梁庄幸福食堂已按用户最新GCJ-02值更正并转换为WGS84，67条正式点均在当前县界内。原提取快照保留，更正独立保存于data/qinshui-point-corrections.json。黄色门店、绿色后勤、红色园区；龙港镇几何中心70公里雷达（提示按要求仍为100km）；装饰地形未配准，不作行政数据来源。
+另提供独立“沁水县大屏-离线演示包-V0.36.zip”，提前解压复制到实际连接大屏的电脑，直接用Chrome/Edge打开index.html。该文件内置地图、图表库、订单、天气快照和动画，展示数据不依赖联网读取，只允许网络状态心跳；建议由本地规则每分钟重算。离线不会获取新的真实天气/ERP订单。内网也断时，不能只依赖园区服务器；必须使用大屏电脑上的本地文件。配置方法和现场断网验收见离线包“使用说明.md”。
 
-演示销售基数按原日均×60%，新订单净额100%计入；真实模式与月度实际不打折。梅河店固定底部、9秒门店轮播、内部流光。9月实际135.68万元；10月实际183088.28元截至5日、预期182.65万元；未来11月216.26万元、12月312万元、1月358万元为用户授权配置，未接远端AI月度预测。消费者频次/复购基于已有10天会员样本，不代表完整30天全体消费者。ERP中类字典已存，商品预测仍为展示样例；库存与库容分开，智慧决策为本地规则。完整说明见data/需求与数据对接说明.md。
+## 保留口径
 
-发布包不含原始ERP Excel、会员标识、天气私钥。相关页面、订单联动、图表SVG、天气轮播、JWT/Host、额度/跨月/失败保留均已检查；GitHub任务仍需远端运行验收。无需安装npm依赖。
+3268×1290、三列32/36/32。原表F列含税日均基数×45%，新订单净额100%；基于当前北京时间，刷新直接重算，恢复流水位置；人工导入跨电脑不共享。梅河店固定底部、非等距金额轴、内部光条，流水标题“销售流水 · 订单情况”。10月预期182.65万元，11月216.26万元，12月312万元、1月358万元；实际来源截止日期保留。本版订单为10月5–6日1,682单/5,068条明细、净额40,457.49元；消费者统计为同批两天已识别会员汇总及渐进回放。今日销售基数18,777.6396元，门店基数合计12,583.9368元；昨日比较固定49,823.87元。流水显示表内Z列处理时间，实物Y列时间保留。价格指数不变，商品未来7天金额/数量仍是布局样例。智慧决策尚未配置远端模型代理，使用本地规则，不宣称实时AI模型分析。
+
+天气任务每日北京时间07:17，网页每5分钟读配置的汇总地址（默认每日公开快照）；天气和智慧建议每60秒重算，但不以页面时钟改写真实气象时间。网页、公开更新包均不含天气私钥、原ERP Excel或会员个人信息。
 
 官方说明：
-- https://dev.qweather.com/docs/finance/pricing/
-- https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows
-- https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site
+- https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow
+- https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions
