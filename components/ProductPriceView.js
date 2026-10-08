@@ -52,6 +52,7 @@
         itemStyle:{color:colors.gold,borderRadius:[0,3,3,0]},label:{show:true,position:'right',distance:7,color:colors.gold,fontSize:17,
           formatter:params=>yuan(prices[params.dataIndex])},
         markPoint:{silent:true,data:annotations},
+        markLine:{silent:true,symbol:'none',label:{show:false},lineStyle:{color:'#ff657a',width:3,opacity:1,type:'dashed'},data:storeCenter!==null?[{xAxis:storeCenter}]:[]}},
         {id:'demand-range-start',name:'需求范围起点',type:'bar',xAxisIndex:1,stack:'demand-range',barWidth:12,data:items.map(()=>range?.min??null),itemStyle:{color:'transparent'},silent:true},
         {id:'demand-range',name:'未来7天需求范围',type:'bar',xAxisIndex:1,stack:'demand-range',barWidth:12,data:items.map(()=>range?range.max-range.min:null),
           itemStyle:{color:'rgba(194,206,222,.12)',borderColor:'#c2cede',borderWidth:1.2,borderType:'dashed'},
