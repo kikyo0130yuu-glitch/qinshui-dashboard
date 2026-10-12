@@ -1,6 +1,8 @@
-# 沁水县供应链智慧运营指挥大屏 · V0.48
+# 沁水县供应链智慧运营指挥大屏 · V0.49
 
-本版修复中类需求虚框全部相同的问题：按9月中类自身的正向有效销售额计算星期系数，替换公共星期系数；月份与节假日仍用原配置，避免重复计算星期影响。每条虚框读取对应中类的未来7天最小值–最大值，按当前上海日期重算。历史不足或分析范围失配时显示“—”，不复制全店区间。新增category-demand-profiles-data.js和data/category-demand-profiles.json，发布时必须一起更新。价格和销售金额保持原值。
+本版名称调整：“分拣拆整”改为“分拣拆零”，“地堆区”改为“整件区”，主屏、配置页与数据口径说明同步。数值与计算保持不变。
+
+沿用V0.48中类需求区间修复：按9月中类自身的正向有效销售额计算星期系数，替换公共星期系数；月份与节假日仍用原配置，避免重复计算星期影响。每条虚框读取对应中类的未来7天最小值–最大值，按当前上海日期重算。历史不足或分析范围失配时显示“—”，不复制全店区间。新增category-demand-profiles-data.js和data/category-demand-profiles.json，发布时必须一起更新。价格和销售金额保持原值。
 
 本版商品区间只显示7天最小–最大需求数值，删除消费等级及方向箭头；全店基线改为更亮红色3px虚线，图例同步。天气接口继续使用既有阿里云FC及JWT认证。
 
@@ -18,7 +20,7 @@
 
 ## 已发布仓库：更新步骤
 
-使用GitHub-Pages-更新包-V0.48-2026-10-08.zip。本包不含.github、automation、.gitignore、weather-data.js和data/weather-latest.json，以保留已有工作流、请求计数及天气快照。
+使用GitHub-Pages-更新包-V0.49-2026-10-12.zip。本包不含.github、automation、.gitignore、weather-data.js和data/weather-latest.json，以保留已有工作流、请求计数及天气快照。
 
 1. GitHub Desktop选择qinshui-dashboard，Fetch origin / Pull origin。
 2. Repository → Show in Finder，将本包解压后的文件与assets/components/data合并到仓库根目录，不额外套dist文件夹。保留.git、CNAME、已有.github、automation和天气文件；新category-demand-profiles-data.js、data/category-demand-profiles.json、sales-weight-config.js、product-price-analysis-data.js和两个商品组件必须一起更新。
@@ -28,7 +30,7 @@
 
 ## 断网展示
 
-将沁水县大屏-离线演示包-V0.48.zip提前解压复制到真正连接大屏的电脑，用Chrome/Edge打开index.html，进入全屏。地图、订单、图表库与本地规则全部内置。断互联网及业务内网也能运行，前提是本机供电、浏览器及LED显示链路正常。离线不获取新的天气或ERP订单，保留天气真实获取时间；内置订单仍按北京时间到时更新。现场应核对电脑时间准确。
+将沁水县大屏-离线演示包-V0.49.zip提前解压复制到真正连接大屏的电脑，用Chrome/Edge打开index.html，进入全屏。地图、订单、图表库与本地规则全部内置。断互联网及业务内网也能运行，前提是本机供电、浏览器及LED显示链路正常。离线不获取新的天气或ERP订单，保留天气真实获取时间；内置订单仍按北京时间到时更新。现场应核对电脑时间准确。
 
 ## 保留计算口径
 
