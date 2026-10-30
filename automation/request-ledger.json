@@ -2,7 +2,7 @@
   "version": 1,
   "monthlyCap": 100,
   "requests": {
-    "2026-10": 50
+    "2026-10": 52
   },
   "initializationBasis": "Existing local service request counts; user confirmed this is the only calling project. Account console usage not inspected.",
   "lastResult": {
@@ -13,10 +13,10 @@
     "completedAt": "2026-10-07T23:27:18.088Z"
   },
   "pending": {
-    "runId": "40806463094:1",
+    "runId": "40992714269:1",
     "month": "2026-10",
-    "before": 48,
+    "before": 50,
     "allocation": 2,
-    "reservedAt": "2026-10-29T02:27:42.569Z"
+    "reservedAt": "2026-10-30T02:37:04.633Z"
   }
 }
